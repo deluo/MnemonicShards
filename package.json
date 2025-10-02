@@ -1,0 +1,29 @@
+{
+  "name": "seed-split",
+  "version": "1.0.0",
+  "description": "Shamir Secret Sharing",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "npx http-server -p 8080 -o",
+    "dev": "vite",
+    "serve": "npx http-server -p 8080",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "keywords": [
+    "shamir",
+    "secret-sharing",
+    "cryptography"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "shamir-secret-sharing": "^0.0.4"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1",
+    "vite": "^7.1.7",
+    "vite-plugin-singlefile": "^2.3.0"
+  }
+}
