@@ -11,7 +11,6 @@ function init() {
   setWordCount(12);
   updateThresholdOptions();
   document.getElementById('totalShares').addEventListener('change', updateThresholdOptions);
-  console.log('✅ 使用专业 shamir-secret-sharing 库');
 }
 
 // 设置助记词数量
@@ -50,9 +49,10 @@ function generateWordInputs() {
       handleWordInput(e.target, i);
     });
 
-    // 失去焦点时隐藏建议
+    // 失去焦点时验证输入并隐藏建议
     input.addEventListener('blur', () => {
       setTimeout(() => {
+        validateWordInput(input, i);
         hideSuggestions(i);
       }, 200); // 延迟隐藏，允许点击建议项
     });
@@ -78,22 +78,131 @@ function handleWordInput(input, wordIndex) {
   // 如果输入为空，隐藏建议
   if (value.length === 0) {
     hideSuggestions(wordIndex);
+    checkDuplicateWords();
     return;
   }
 
-  // 设置新的定时器，1秒后显示建议
+  // 设置新的定时器，100ms后显示建议
   const timeoutId = setTimeout(() => {
     showSuggestions(value, wordIndex);
-  }, 1000);
+    checkDuplicateWords();
+  }, 100);
 
   autocompleteTimeouts.set(wordIndex, timeoutId);
 }
 
+// 验证是否为有效的 BIP39 单词
+function isValidBIP39Word(word) {
+  if (!word || word.trim().length === 0) return false;
+  return BIP39_WORDLIST.includes(word.trim().toLowerCase());
+}
+
+// 验证单词输入
+function validateWordInput(input, wordIndex) {
+  const value = input.value.trim();
+
+  // 如果输入为空，直接返回
+  if (value.length === 0) {
+    input.classList.remove('invalid-word', 'valid-word');
+    return;
+  }
+
+  // 验证是否为有效的 BIP39 单词
+  if (isValidBIP39Word(value)) {
+    input.classList.remove('invalid-word');
+    input.classList.add('valid-word');
+  } else {
+    input.classList.remove('valid-word');
+    input.classList.add('invalid-word');
+
+    // 清空无效输入
+    input.value = '';
+
+    // 显示错误提示
+    showInvalidWordWarning(wordIndex);
+  }
+
+  // 检查重复单词
+  checkDuplicateWords();
+}
+
+// 显示无效单词警告
+function showInvalidWordWarning(wordIndex) {
+  const errorAlert = document.getElementById('inputErrorAlert');
+  errorAlert.innerHTML = `<strong>❌ 无效助记词：</strong> 第 ${wordIndex} 个输入框中的单词不是有效的 BIP39 单词，已自动清空。请从建议列表中选择有效的单词。`;
+  errorAlert.style.display = 'block';
+
+  // 3秒后自动隐藏警告
+  setTimeout(() => {
+    errorAlert.style.display = 'none';
+  }, 3000);
+}
+
+// 检查重复单词
+function checkDuplicateWords() {
+  const words = [];
+  const duplicates = new Set();
+  const duplicatePositions = new Map(); // 存储重复单词及其位置
+
+  // 收集所有输入的单词
+  for (let i = 1; i <= currentWordCount; i++) {
+    const word = document.getElementById(`word${i}`).value.trim().toLowerCase();
+    if (word) {
+      if (words.includes(word)) {
+        duplicates.add(word);
+        if (!duplicatePositions.has(word)) {
+          duplicatePositions.set(word, []);
+        }
+        duplicatePositions.get(word).push(i);
+      } else {
+        words.push(word);
+      }
+    }
+  }
+
+  // 显示或隐藏重复单词提示
+  const duplicateAlert = document.getElementById('duplicateAlert');
+
+  if (duplicates.size > 0) {
+    // 构建详细的重复信息
+    let duplicateDetails = '';
+    for (const [word, positions] of duplicatePositions) {
+      if (duplicateDetails) duplicateDetails += '<br>';
+      duplicateDetails += `<strong>${word}</strong>: 位置 ${positions.join(', ')}`;
+    }
+
+    // 更新提示内容
+    duplicateAlert.innerHTML = `<strong>⚠️ 检测到重复单词：</strong><br>${duplicateDetails}<br><small>助记词中的单词应该是唯一的，请检查并修改重复的单词。</small>`;
+    duplicateAlert.style.display = 'block';
+
+    // 为重复的单词添加视觉标记
+    for (let i = 1; i <= currentWordCount; i++) {
+      const input = document.getElementById(`word${i}`);
+      const word = input.value.trim().toLowerCase();
+
+      if (word && duplicates.has(word)) {
+        input.classList.add('duplicate-word');
+      } else {
+        input.classList.remove('duplicate-word');
+      }
+    }
+  } else {
+    // 隐藏提示并移除所有重复标记
+    duplicateAlert.style.display = 'none';
+    for (let i = 1; i <= currentWordCount; i++) {
+      document.getElementById(`word${i}`).classList.remove('duplicate-word');
+    }
+  }
+}
+
 // 搜索匹配的BIP39单词
 function searchBIP39Words(query) {
-  if (query.length === 0) return [];
+  if (query.length === 0) {
+    return [];
+  }
 
-  return BIP39_WORDLIST.filter((word) => word.toLowerCase().startsWith(query)).slice(0, 5); // 最多返回5个候选词
+  const matches = BIP39_WORDLIST.filter((word) => word.toLowerCase().startsWith(query)).slice(0, 5); // 最多返回5个候选词
+  return matches;
 }
 
 // 显示建议列表
@@ -108,6 +217,14 @@ function showSuggestions(query, wordIndex) {
 
   suggestionsDiv.innerHTML = '';
   suggestionsDiv.style.display = 'block';
+
+  // 简化定位逻辑 - 统一使用绝对定位
+  suggestionsDiv.style.position = 'absolute';
+  suggestionsDiv.style.top = '100%';
+  suggestionsDiv.style.left = '0';
+  suggestionsDiv.style.right = '0';
+  suggestionsDiv.style.width = 'auto';
+  suggestionsDiv.style.zIndex = '99999';
 
   // 创建容器
   const container = document.createElement('div');
@@ -137,7 +254,13 @@ function hideSuggestions(wordIndex) {
 function selectWord(word, wordIndex) {
   const input = document.getElementById(`word${wordIndex}`);
   input.value = word;
+
+  // 标记为有效单词
+  input.classList.remove('invalid-word');
+  input.classList.add('valid-word');
+
   hideSuggestions(wordIndex);
+  checkDuplicateWords();
 
   // 自动跳转到下一个输入框
   if (wordIndex < currentWordCount) {
@@ -169,18 +292,72 @@ function updateThresholdOptions() {
 async function generateShares() {
   const words = [];
   let hasEmpty = false;
+  let hasInvalidWord = false;
+  let invalidWordIndex = -1;
 
+  // 验证所有输入的单词
   for (let i = 1; i <= currentWordCount; i++) {
     const word = document.getElementById(`word${i}`).value.trim();
     if (!word) {
       hasEmpty = true;
       break;
     }
+
+    // 验证是否为有效的 BIP39 单词
+    if (!isValidBIP39Word(word)) {
+      hasInvalidWord = true;
+      invalidWordIndex = i;
+      break;
+    }
+
     words.push(word);
   }
 
   if (hasEmpty) {
     showAlert('请填写所有助记词！', 'error');
+    return;
+  }
+
+  if (hasInvalidWord) {
+    showAlert(`第 ${invalidWordIndex} 个单词不是有效的 BIP39 单词，请从建议列表中选择有效的单词。`, 'error');
+    // 高亮无效输入框
+    const invalidInput = document.getElementById(`word${invalidWordIndex}`);
+    invalidInput.classList.add('invalid-word');
+    invalidInput.focus();
+    return;
+  }
+
+  // 检查重复单词
+  const wordSet = new Set();
+  const duplicates = new Set();
+  for (const word of words) {
+    if (wordSet.has(word)) {
+      duplicates.add(word);
+    } else {
+      wordSet.add(word);
+    }
+  }
+
+  if (duplicates.size > 0) {
+    const duplicateWords = Array.from(duplicates).join(', ');
+    showAlert(`检测到重复单词：${duplicateWords}。助记词中的单词应该是唯一的，请修改重复的单词。`, 'error');
+
+    // 高亮重复的单词
+    for (let i = 1; i <= currentWordCount; i++) {
+      const word = document.getElementById(`word${i}`).value.trim().toLowerCase();
+      if (duplicates.has(word)) {
+        document.getElementById(`word${i}`).classList.add('duplicate-word');
+      }
+    }
+
+    // 聚焦到第一个重复的单词
+    for (let i = 1; i <= currentWordCount; i++) {
+      const word = document.getElementById(`word${i}`).value.trim().toLowerCase();
+      if (duplicates.has(word)) {
+        document.getElementById(`word${i}`).focus();
+        break;
+      }
+    }
     return;
   }
 
@@ -352,7 +529,7 @@ async function recoverMnemonic() {
           validShareData.push(shareData);
         }
       } catch (e) {
-        console.warn('跳过无效分片:', shareStr.substring(0, 50) + '...');
+        // 跳过无效分片
       }
     }
 
@@ -402,22 +579,43 @@ async function recoverMnemonic() {
 
 // 显示提示信息
 function showAlert(message, type) {
-  const existingAlert = document.querySelector('.temp-alert');
-  if (existingAlert) {
-    existingAlert.remove();
+  // 隐藏所有提示区域
+  hideAllAlerts();
+
+  let alertElement;
+
+  // 根据类型选择合适的提示区域
+  switch (type) {
+    case 'success':
+      alertElement = document.getElementById('successAlert');
+      break;
+    case 'error':
+      alertElement = document.getElementById('generalErrorAlert');
+      break;
+    default:
+      // 对于其他类型，使用通用错误提示
+      alertElement = document.getElementById('generalErrorAlert');
+      break;
   }
 
-  const alert = document.createElement('div');
-  alert.className = `alert alert-${type} temp-alert`;
-  alert.textContent = message;
+  // 设置提示内容并显示
+  alertElement.innerHTML = message;
+  alertElement.style.display = 'block';
 
-  const mainContent = document.querySelector('.main-content');
-  mainContent.insertBefore(alert, mainContent.firstChild);
-
+  // 3秒后自动隐藏
   setTimeout(() => {
-    alert.remove();
+    alertElement.style.display = 'none';
   }, 3000);
 }
+
+// 隐藏所有提示区域
+function hideAllAlerts() {
+  document.getElementById('inputErrorAlert').style.display = 'none';
+  document.getElementById('duplicateAlert').style.display = 'none';
+  document.getElementById('generalErrorAlert').style.display = 'none';
+  document.getElementById('successAlert').style.display = 'none';
+}
+
 
 // 将函数绑定到全局作用域
 window.setWordCount = setWordCount;

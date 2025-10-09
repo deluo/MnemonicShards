@@ -2,7 +2,7 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>助记词分片工具</title>
     <style>
       * {
@@ -15,7 +15,10 @@
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         min-height: 100vh;
-        padding: 20px;
+        padding: 15px;
+        -webkit-text-size-adjust: 100%;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
       }
 
       .container {
@@ -25,12 +28,13 @@
         border-radius: 16px;
         box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
         overflow: hidden;
+        min-height: calc(100vh - 30px);
       }
 
       .header {
         background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
         color: white;
-        padding: 30px;
+        padding: 30px 20px;
         text-align: center;
       }
 
@@ -38,15 +42,17 @@
         font-size: 2.5rem;
         margin-bottom: 10px;
         font-weight: 300;
+        line-height: 1.2;
       }
 
       .header p {
         opacity: 0.9;
         font-size: 1.1rem;
+        line-height: 1.4;
       }
 
       .main-content {
-        padding: 40px;
+        padding: 40px 20px;
       }
 
       .section {
@@ -111,12 +117,18 @@
       }
 
       select {
-        padding: 10px 15px;
+        padding: 12px 15px;
         border: 2px solid #e1e5e9;
         border-radius: 8px;
-        font-size: 1rem;
+        font-size: 16px; /* 防止iOS缩放 */
         background: white;
         cursor: pointer;
+        -webkit-appearance: none;
+        -webkit-tap-highlight-color: transparent;
+        background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 15px center;
+        padding-right: 35px;
       }
 
       select:focus {
@@ -141,12 +153,15 @@
 
       .word-input input {
         width: 100%;
-        padding: 12px 15px;
+        padding: 14px 15px;
         border: none;
         border-bottom: 2px solid #e1e5e9;
         background: transparent;
-        font-size: 1rem;
+        font-size: 16px; /* 防止iOS缩放 */
         transition: all 0.3s;
+        -webkit-appearance: none;
+        -webkit-tap-highlight-color: transparent;
+        border-radius: 0;
       }
 
       .word-input input:focus {
@@ -156,6 +171,35 @@
 
       .word-input input:not(:placeholder-shown) {
         border-bottom-color: #28a745;
+      }
+
+      .word-input input.valid-word {
+        border-bottom-color: #28a745;
+        background-color: rgba(40, 167, 69, 0.05);
+      }
+
+      .word-input input.invalid-word {
+        border-bottom-color: #dc3545;
+        background-color: rgba(220, 53, 69, 0.05);
+        animation: shake 0.3s ease-in-out;
+      }
+
+      .word-input input.duplicate-word {
+        border-bottom-color: #ffc107;
+        background-color: rgba(255, 193, 7, 0.1);
+      }
+
+      @keyframes shake {
+        0%,
+        100% {
+          transform: translateX(0);
+        }
+        25% {
+          transform: translateX(-5px);
+        }
+        75% {
+          transform: translateX(5px);
+        }
       }
 
       .word-input label {
@@ -181,7 +225,7 @@
         left: 0;
         right: 0;
         background: transparent;
-        z-index: 1000;
+        z-index: 9999;
         display: none;
         padding: 8px 0 0 0;
         margin-top: 2px;
@@ -205,7 +249,7 @@
         color: white;
         font-weight: 500;
         border-radius: 6px;
-        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        background: #6fa8dc;
       }
 
       .suggestion-item:hover {
@@ -223,11 +267,14 @@
         border: none;
         padding: 15px 30px;
         border-radius: 8px;
-        font-size: 1.1rem;
+        font-size: 16px; /* 防止iOS缩放 */
         font-weight: 600;
         cursor: pointer;
         transition: all 0.3s;
         box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        -webkit-appearance: none;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
       }
 
       .action-btn:hover {
@@ -409,6 +456,12 @@
         border-left: 4px solid #17a2b8;
       }
 
+      .alert-warning {
+        background: #fff3cd;
+        color: #856404;
+        border-left: 4px solid #ffc107;
+      }
+
       .security-notice {
         background: #d4edda;
         color: #155724;
@@ -418,7 +471,8 @@
 
       @media (max-width: 768px) {
         .words-grid {
-          grid-template-columns: repeat(2, 1fr);
+          grid-template-columns: 1fr;
+          gap: 20px;
         }
 
         .controls {
@@ -439,11 +493,94 @@
         }
 
         .header h1 {
-          font-size: 2rem;
+          font-size: 1.8rem;
         }
 
         .main-content {
-          padding: 20px;
+          padding: 20px 15px;
+        }
+
+        /* 移动端联想提示优化 */
+        .autocomplete-suggestions {
+          z-index: 99999 !important;
+          position: fixed !important;
+          top: auto !important;
+          bottom: 20px !important;
+          left: 10px !important;
+          right: 10px !important;
+          width: calc(100% - 20px) !important;
+          background: rgba(0, 0, 0, 0.95) !important;
+          padding: 12px !important;
+          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+          border-radius: 12px !important;
+          backdrop-filter: blur(10px) !important;
+          -webkit-backdrop-filter: blur(10px) !important;
+        }
+
+        .suggestions-container {
+          display: flex !important;
+          flex-wrap: wrap !important;
+          gap: 8px !important;
+          justify-content: center !important;
+          max-height: 150px !important;
+          overflow-y: auto !important;
+          -webkit-overflow-scrolling: touch !important;
+        }
+
+        .suggestion-item {
+          font-size: 14px !important;
+          padding: 8px 14px !important;
+          background: #6fa8dc !important;
+          color: white !important;
+          border-radius: 20px !important;
+          cursor: pointer !important;
+          transition: all 0.2s !important;
+          font-weight: 500 !important;
+          border: 1px solid rgba(255, 255, 255, 0.2) !important;
+          user-select: none !important;
+          -webkit-user-select: none !important;
+        }
+
+        .suggestion-item:active,
+        .suggestion-item:hover {
+          background: #4a86c8 !important;
+          transform: scale(0.95) !important;
+        }
+
+        /* 移动端恢复输入框焦点时的优化 */
+        .word-input input {
+          font-size: 16px; /* 防止iOS缩放 */
+        }
+
+        /* 优化键盘弹出时的视口问题 */
+        body {
+          min-height: 100vh;
+          position: relative;
+        }
+
+        /* 确保容器不会超出视口 */
+        .container {
+          max-height: 100vh;
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        /* 复制按钮优化 */
+        .copy-btn {
+          padding: 8px 16px !important;
+          font-size: 14px !important;
+        }
+
+        /* 防止移动端双击缩放 */
+        * {
+          touch-action: manipulation;
+        }
+
+        /* 恢复输入框焦点时的优化 */
+        .container {
+          max-height: 100vh;
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
         }
       }
     </style>
@@ -498,6 +635,22 @@
         <!-- 助记词输入区域 -->
         <div class="section">
           <div class="section-title">📝 输入助记词</div>
+
+          <div id="inputErrorAlert" style="display: none" class="alert alert-error">
+            <!-- BIP39 单词验证错误提示将在这里显示 -->
+          </div>
+
+          <div id="duplicateAlert" style="display: none" class="alert alert-warning">
+            <!-- 重复单词提示将在这里显示 -->
+          </div>
+
+          <div id="generalErrorAlert" style="display: none" class="alert alert-error">
+            <!-- 一般错误提示将在这里显示 -->
+          </div>
+
+          <div id="successAlert" style="display: none" class="alert alert-success">
+            <!-- 成功提示将在这里显示 -->
+          </div>
 
           <div class="words-grid" id="wordsGrid">
             <!-- 动态生成输入框 -->
