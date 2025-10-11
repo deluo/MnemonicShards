@@ -129,7 +129,7 @@ function validateWordInput(input, wordIndex) {
 // 显示无效单词警告
 function showInvalidWordWarning(wordIndex) {
   const errorAlert = document.getElementById('inputErrorAlert');
-  errorAlert.innerHTML = `<strong>❌ 无效助记词：</strong> 第 ${wordIndex} 个输入框中的单词不是有效的 BIP39 单词，已自动清空。请从建议列表中选择有效的单词。`;
+  errorAlert.innerHTML = `<strong>无效助记词：</strong> 第 ${wordIndex} 个输入框中的单词不是有效的 BIP39 单词，已自动清空。请从建议列表中选择有效的单词。`;
   errorAlert.style.display = 'block';
 
   // 3秒后自动隐藏警告
@@ -172,7 +172,7 @@ function checkDuplicateWords() {
     }
 
     // 更新提示内容
-    duplicateAlert.innerHTML = `<strong>⚠️ 检测到重复单词：</strong><br>${duplicateDetails}<br><small>助记词中的单词应该是唯一的，请检查并修改重复的单词。</small>`;
+    duplicateAlert.innerHTML = `<strong>检测到重复单词：</strong><br>${duplicateDetails}<br><small>助记词中的单词应该是唯一的，请检查并修改重复的单词。</small>`;
     duplicateAlert.style.display = 'block';
 
     // 为重复的单词添加视觉标记
@@ -218,17 +218,84 @@ function showSuggestions(query, wordIndex) {
   suggestionsDiv.innerHTML = '';
   suggestionsDiv.style.display = 'block';
 
-  // 简化定位逻辑 - 统一使用绝对定位
-  suggestionsDiv.style.position = 'absolute';
-  suggestionsDiv.style.top = '100%';
-  suggestionsDiv.style.left = '0';
-  suggestionsDiv.style.right = '0';
-  suggestionsDiv.style.width = 'auto';
-  suggestionsDiv.style.zIndex = '99999';
+  // 获取输入框的位置信息
+  const input = document.getElementById(`word${wordIndex}`);
+  const inputRect = input.getBoundingClientRect();
+  const containerRect = input.closest('.words-grid').getBoundingClientRect();
+
+  // 判断输入框在网格中的位置
+  const inputRelativeLeft = inputRect.left - containerRect.left;
+  const containerWidth = containerRect.width;
+  const isNearRightEdge = inputRelativeLeft > containerWidth * 0.6; // 在右侧60%区域
+
+  // 检测是否是移动端
+  const isMobile = window.innerWidth <= 768;
+
+  // 设置建议列表的定位和对齐方式
+  if (isMobile) {
+    // 移动端使用固定定位，在底部显示
+    suggestionsDiv.style.position = 'fixed';
+    suggestionsDiv.style.top = 'auto';
+    suggestionsDiv.style.bottom = '20px';
+    suggestionsDiv.style.left = '10px';
+    suggestionsDiv.style.right = '10px';
+    suggestionsDiv.style.width = 'calc(100% - 20px)';
+    suggestionsDiv.style.zIndex = '99999';
+    suggestionsDiv.style.background = 'rgba(0, 0, 0, 0.95)';
+    suggestionsDiv.style.padding = '12px';
+    suggestionsDiv.style.borderRadius = '12px';
+    suggestionsDiv.style.textAlign = 'center';
+  } else {
+    // 桌面端使用绝对定位
+    suggestionsDiv.style.position = 'absolute';
+    suggestionsDiv.style.top = '100%';
+    suggestionsDiv.style.zIndex = '99999';
+    suggestionsDiv.style.background = 'transparent';
+    suggestionsDiv.style.padding = '8px 0 0 0';
+
+    if (isNearRightEdge) {
+      // 右侧输入框：右对齐
+      suggestionsDiv.style.left = 'auto';
+      suggestionsDiv.style.right = '0';
+      suggestionsDiv.style.width = 'auto';
+      suggestionsDiv.style.textAlign = 'right';
+    } else {
+      // 左侧和中间输入框：左对齐
+      suggestionsDiv.style.left = '0';
+      suggestionsDiv.style.right = 'auto';
+      suggestionsDiv.style.width = 'auto';
+      suggestionsDiv.style.textAlign = 'left';
+    }
+  }
 
   // 创建容器
   const container = document.createElement('div');
   container.className = 'suggestions-container';
+
+  // 根据设备类型和对齐方式设置容器样式
+  if (isMobile) {
+    // 移动端：居中显示，支持换行
+    container.style.display = 'flex';
+    container.style.flexWrap = 'wrap';
+    container.style.gap = '8px';
+    container.style.justifyContent = 'center';
+    container.style.maxHeight = '150px';
+    container.style.overflowY = 'auto';
+    container.style.webkitOverflowScrolling = 'touch';
+  } else {
+    // 桌面端：根据输入框位置对齐
+    container.style.display = 'flex';
+    container.style.gap = '6px';
+    container.style.justifyContent = 'flex-start';
+    container.style.flexWrap = 'nowrap';
+    container.style.alignItems = 'center';
+
+    if (isNearRightEdge) {
+      container.style.justifyContent = 'flex-end';
+    } else {
+      container.style.justifyContent = 'flex-start';
+    }
+  }
 
   suggestions.forEach((word) => {
     const suggestionItem = document.createElement('div');
@@ -237,6 +304,33 @@ function showSuggestions(query, wordIndex) {
     suggestionItem.addEventListener('click', () => {
       selectWord(word, wordIndex);
     });
+
+    // 设置建议项的样式
+    if (isMobile) {
+      suggestionItem.style.fontSize = '14px';
+      suggestionItem.style.padding = '8px 14px';
+      suggestionItem.style.background = '#6fa8dc';
+      suggestionItem.style.color = 'white';
+      suggestionItem.style.borderRadius = '20px';
+      suggestionItem.style.cursor = 'pointer';
+      suggestionItem.style.transition = 'all 0.2s';
+      suggestionItem.style.fontWeight = '500';
+      suggestionItem.style.border = '1px solid rgba(255, 255, 255, 0.2)';
+      suggestionItem.style.userSelect = 'none';
+      suggestionItem.style.webkitUserSelect = 'none';
+    } else {
+      suggestionItem.style.padding = '6px 12px';
+      suggestionItem.style.cursor = 'pointer';
+      suggestionItem.style.transition = 'all 0.2s';
+      suggestionItem.style.fontSize = '0.85rem';
+      suggestionItem.style.whiteSpace = 'nowrap';
+      suggestionItem.style.flexShrink = '0';
+      suggestionItem.style.color = 'white';
+      suggestionItem.style.fontWeight = '500';
+      suggestionItem.style.borderRadius = '6px';
+      suggestionItem.style.background = '#6fa8dc';
+    }
+
     container.appendChild(suggestionItem);
   });
 
@@ -402,7 +496,10 @@ function displayShares(shares, threshold) {
     shareItem.innerHTML = `
             <div class="share-header">
                 <div class="share-title">分片 ${index + 1}</div>
-                <button class="copy-btn" onclick="copyShare(this, '${share}')">复制</button>
+                <div class="share-buttons">
+                    <button class="copy-btn" onclick="copyShare(this, '${share}')">复制</button>
+                    <button class="download-btn" onclick="downloadShare('${share}', ${index + 1})">下载</button>
+                </div>
             </div>
             <div class="share-content">${share}</div>
         `;
@@ -429,6 +526,37 @@ function copyShare(button, shareContent) {
     .catch(() => {
       showAlert('复制失败，请手动复制', 'error');
     });
+}
+
+// 下载分片为文件
+function downloadShare(shareContent, shareIndex) {
+  try {
+    // 创建文件内容
+    const fileContent = `助记词分片 ${shareIndex}\n${'='.repeat(50)}\n\n分片内容：\n${shareContent}\n\n${'='.repeat(50)}\n生成时间：${new Date().toLocaleString()}\n\n安全提示：\n- 请将此文件保存在安全的位置\n- 不要将分片分享给不信任的人\n- 任意指定数量的分片即可恢复原始助记词`;
+
+    // 创建 Blob 对象
+    const blob = new Blob([fileContent], { type: 'text/plain;charset=utf-8' });
+
+    // 创建下载链接
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `分片${shareIndex}.txt`;
+
+    // 触发下载
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    // 清理 URL 对象
+    URL.revokeObjectURL(url);
+
+    // 显示成功提示
+    showAlert(`分片 ${shareIndex} 已下载`, 'success');
+  } catch (error) {
+    showAlert('下载失败，请重试', 'error');
+    console.error('Download error:', error);
+  }
 }
 
 // 验证分片输入
@@ -477,24 +605,24 @@ function validateShares() {
 
     if (validShares === 0) {
       statusDiv.className = 'input-status invalid';
-      statusDiv.innerHTML = '<span class="status-text">❌ 未检测到有效分片，请检查格式</span>';
+      statusDiv.innerHTML = '<span class="status-text">未检测到有效分片，请检查格式</span>';
       recoverBtn.disabled = true;
       return;
     }
 
     if (validShares < threshold) {
       statusDiv.className = 'input-status insufficient';
-      statusDiv.innerHTML = `<span class="status-text">⚠️ 检测到 ${validShares} 个有效分片，需要至少 ${threshold} 个分片才能恢复</span>`;
+      statusDiv.innerHTML = `<span class="status-text">检测到 ${validShares} 个有效分片，需要至少 ${threshold} 个分片才能恢复</span>`;
       recoverBtn.disabled = true;
       return;
     }
 
     statusDiv.className = 'input-status valid';
-    statusDiv.innerHTML = `<span class="status-text">✅ 检测到 ${validShares} 个有效分片（需要 ${threshold} 个），可以开始恢复</span>`;
+    statusDiv.innerHTML = `<span class="status-text">检测到 ${validShares} 个有效分片（需要 ${threshold} 个），可以开始恢复</span>`;
     recoverBtn.disabled = false;
   } catch (error) {
     statusDiv.className = 'input-status invalid';
-    statusDiv.innerHTML = '<span class="status-text">❌ 分片格式错误，请检查输入</span>';
+    statusDiv.innerHTML = '<span class="status-text">分片格式错误，请检查输入</span>';
     recoverBtn.disabled = true;
   }
 }
@@ -512,7 +640,7 @@ async function recoverMnemonic() {
 
   // 显示处理状态
   recoverBtn.disabled = true;
-  recoverBtn.textContent = '🔄 正在恢复...';
+  recoverBtn.textContent = '正在恢复...';
 
   try {
     const shareStrings = input
@@ -557,7 +685,7 @@ async function recoverMnemonic() {
 
     resultDiv.innerHTML = `
             <div class="alert alert-success">
-                <strong>🎉 恢复成功！</strong><br>
+                <strong>恢复成功！</strong><br>
                 <strong>助记词：</strong><span style="font-family: 'Courier New', monospace; background: #f8f9fa; padding: 2px 6px; border-radius: 4px;">${recoveredMnemonic}</span><br>
                 <strong>使用分片数：</strong>${validShareData.length} 个（需要 ${threshold} 个）<br>
                 <strong>恢复时间：</strong>${new Date().toLocaleString()}
@@ -566,14 +694,14 @@ async function recoverMnemonic() {
   } catch (error) {
     resultDiv.innerHTML = `
             <div class="alert alert-error">
-                <strong>❌ 恢复失败：</strong>${error.message}<br>
+                <strong>恢复失败：</strong>${error.message}<br>
                 <small>请检查分片格式是否正确，确保每行一个完整的分片</small>
             </div>
         `;
   } finally {
     // 恢复按钮状态
     recoverBtn.disabled = false;
-    recoverBtn.textContent = '🔓 恢复助记词';
+    recoverBtn.textContent = '恢复助记词';
   }
 }
 
@@ -621,6 +749,7 @@ function hideAllAlerts() {
 window.setWordCount = setWordCount;
 window.generateShares = generateShares;
 window.copyShare = copyShare;
+window.downloadShare = downloadShare;
 window.recoverMnemonic = recoverMnemonic;
 window.validateShares = validateShares;
 
