@@ -61,14 +61,20 @@ class MnemonicSplitApp {
     const recoverBtn = getElement(SELECTORS.RECOVER_BTN);
 
     if (recoverInput) {
-      addEvent(recoverInput, 'input', () => this.shareManager.validateShareInput());
+      addEvent(recoverInput, 'input', () => {
+        this.shareManager.validateShareInput();
+      });
       addEvent(recoverInput, 'paste', () => {
-        setTimeout(() => this.shareManager.validateShareInput(), 100);
+        setTimeout(() => {
+          this.shareManager.validateShareInput();
+        }, 100);
       });
     }
 
     if (recoverBtn) {
-      addEvent(recoverBtn, 'click', () => this.handleRecoverMnemonic());
+      addEvent(recoverBtn, 'click', (e) => {
+        this.handleRecoverMnemonic();
+      });
     }
 
     // 键盘快捷键
@@ -90,7 +96,6 @@ class MnemonicSplitApp {
    */
   setWordCount(count) {
     if (!MNEMONIC_CONFIG.WORD_COUNTS.includes(count)) {
-      console.error(`Invalid word count: ${count}`);
       return;
     }
 
@@ -161,11 +166,7 @@ class MnemonicSplitApp {
     const totalShares = parseInt(getElement(SELECTORS.TOTAL_SHARES).value);
     const threshold = parseInt(getElement(SELECTORS.THRESHOLD).value);
 
-    const success = await this.shareManager.generateShares(
-      validation.words,
-      totalShares,
-      threshold
-    );
+    const success = await this.shareManager.generateShares(validation.words, totalShares, threshold);
 
     if (success) {
       this.scrollToResult();
@@ -239,7 +240,7 @@ class MnemonicSplitApp {
       name: APP_CONFIG.NAME,
       description: APP_CONFIG.DESCRIPTION,
       version: APP_CONFIG.VERSION,
-      currentWordCount: this.currentWordCount
+      currentWordCount: this.currentWordCount,
     };
   }
 
@@ -261,9 +262,8 @@ let app;
 function initApp() {
   try {
     app = new MnemonicSplitApp();
-    console.log(`${APP_CONFIG.NAME} v${APP_CONFIG.VERSION} 初始化成功`);
   } catch (error) {
-    console.error('应用初始化失败:', error);
+    // 静默处理初始化错误
   }
 }
 

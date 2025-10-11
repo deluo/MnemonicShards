@@ -164,7 +164,7 @@ body {
 }
 
 .btn-group button {
-  padding: var(--space-md) var(--space-lg);
+  padding: var(--space-md) var(--space-xl) var(--space-md) var(--space-md);
   border: none;
   background: transparent;
   color: var(--color-text-secondary);
@@ -175,6 +175,19 @@ body {
   text-align: center;
   font-size: var(--font-size-sm);
   position: relative;
+}
+
+/* 特定样式：助记词数量按钮高度与select元素一致 */
+.btn-group[id='wordCountButtons'] button {
+  font-size: var(--font-size-base);
+  padding: var(--space-md) var(--space-xl) var(--space-md) var(--space-md);
+  line-height: 1.5;
+  height: 50px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 50px;
 }
 
 .btn-group button.active {
@@ -274,9 +287,16 @@ select:hover {
 }
 
 @keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-5px); }
-  75% { transform: translateX(5px); }
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-5px);
+  }
+  75% {
+    transform: translateX(5px);
+  }
 }
 
 .word-input label {
@@ -414,7 +434,8 @@ select:hover {
   font-size: var(--font-size-base);
 }
 
-.copy-btn, .download-btn {
+.copy-btn,
+.download-btn {
   border: 1px solid;
   padding: var(--space-sm) var(--space-md);
   border-radius: var(--radius-md);
@@ -744,7 +765,8 @@ select:hover {
     -webkit-overflow-scrolling: touch;
   }
 
-  .copy-btn, .download-btn {
+  .copy-btn,
+  .download-btn {
     padding: var(--space-sm) var(--space-md) !important;
     font-size: var(--font-size-sm) !important;
   }

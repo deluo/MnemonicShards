@@ -11,7 +11,6 @@ export function getElement(selector) {
   try {
     return document.querySelector(selector);
   } catch (error) {
-    console.warn(`Invalid selector: ${selector}`, error);
     return null;
   }
 }
@@ -25,7 +24,6 @@ export function getElements(selector) {
   try {
     return document.querySelectorAll(selector);
   } catch (error) {
-    console.warn(`Invalid selector: ${selector}`, error);
     return [];
   }
 }

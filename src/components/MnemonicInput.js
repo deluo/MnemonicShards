@@ -54,16 +54,16 @@ export class MnemonicInput {
       type: 'text',
       id: `word${index}`,
       placeholder: ' ',
-      autocomplete: 'off'
+      autocomplete: 'off',
     });
 
     const label = createElement('label', [], {
-      for: `word${index}`
+      for: `word${index}`,
     });
     label.textContent = `${index}. 单词`;
 
     const suggestionsDiv = createElement('div', ['autocomplete-suggestions'], {
-      id: `suggestions${index}`
+      id: `suggestions${index}`,
     });
 
     inputContainer.appendChild(input);
@@ -182,9 +182,7 @@ export class MnemonicInput {
       return this.suggestionCache.get(query);
     }
 
-    const matches = BIP39_WORDLIST
-      .filter(word => word.toLowerCase().startsWith(query))
-      .slice(0, UI_CONFIG.SUGGESTIONS.MAX_SUGGESTIONS);
+    const matches = BIP39_WORDLIST.filter((word) => word.toLowerCase().startsWith(query)).slice(0, UI_CONFIG.SUGGESTIONS.MAX_SUGGESTIONS);
 
     // 缓存结果
     this.suggestionCache.set(query, matches);
@@ -238,7 +236,7 @@ export class MnemonicInput {
         background: 'rgba(0, 0, 0, 0.95)',
         padding: '12px',
         borderRadius: '12px',
-        textAlign: 'center'
+        textAlign: 'center',
       });
     } else {
       // 桌面端绝对定位
@@ -254,7 +252,7 @@ export class MnemonicInput {
         zIndex: '99999',
         background: 'transparent',
         padding: '8px 0 0 0',
-        textAlign: isNearRightEdge ? 'right' : 'left'
+        textAlign: isNearRightEdge ? 'right' : 'left',
       });
     }
   }
@@ -277,19 +275,27 @@ export class MnemonicInput {
         justifyContent: 'center',
         maxHeight: UI_CONFIG.SUGGESTIONS.MOBILE_MAX_HEIGHT,
         overflowY: 'auto',
-        webkitOverflowScrolling: 'touch'
+        webkitOverflowScrolling: 'touch',
       });
     } else {
+      // 检查输入框是否位于右侧
+      const input = getElement(SELECTORS.WORD_INPUT(wordIndex));
+      const containerRect = input.closest('.words-grid').getBoundingClientRect();
+      const inputRect = input.getBoundingClientRect();
+      const inputRelativeLeft = inputRect.left - containerRect.left;
+      const containerWidth = containerRect.width;
+      const isNearRightEdge = inputRelativeLeft > containerWidth * 0.6;
+
       Object.assign(suggestionsContainer.style, {
         display: 'flex',
         gap: '6px',
-        justifyContent: 'flex-start',
+        justifyContent: isNearRightEdge ? 'flex-end' : 'flex-start',
         flexWrap: 'nowrap',
-        alignItems: 'center'
+        alignItems: 'center',
       });
     }
 
-    suggestions.forEach(word => {
+    suggestions.forEach((word) => {
       const suggestionItem = this.createSuggestionItem(word, wordIndex, mobile);
       suggestionsContainer.appendChild(suggestionItem);
     });
@@ -316,7 +322,7 @@ export class MnemonicInput {
       borderRadius: '20px',
       border: '1px solid rgba(255, 255, 255, 0.2)',
       userSelect: 'none',
-      webkitUserSelect: 'none'
+      webkitUserSelect: 'none',
     };
 
     const desktopStyles = {
@@ -327,7 +333,7 @@ export class MnemonicInput {
       color: 'white',
       fontWeight: '500',
       borderRadius: '6px',
-      background: '#6fa8dc'
+      background: '#6fa8dc',
     };
 
     Object.assign(item.style, mobile ? mobileStyles : desktopStyles);
@@ -505,7 +511,7 @@ export class MnemonicInput {
       words,
       hasEmpty,
       hasInvalidWord,
-      invalidWordIndex
+      invalidWordIndex,
     };
   }
 
@@ -514,7 +520,7 @@ export class MnemonicInput {
    */
   destroy() {
     // 清理所有定时器
-    this.autocompleteTimeouts.forEach(timeoutId => {
+    this.autocompleteTimeouts.forEach((timeoutId) => {
       clearTimeout(timeoutId);
     });
     this.autocompleteTimeouts.clear();

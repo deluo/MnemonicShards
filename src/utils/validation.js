@@ -27,7 +27,9 @@ export function isValidShareFormat(shareString) {
 
   try {
     const shareData = JSON.parse(atob(shareString.trim()));
-    return !!(shareData.threshold && shareData.index && shareData.data);
+    // 只检查必要字段（threshold、index、data），允许额外字段存在
+    const hasRequiredFields = !!(shareData.threshold && shareData.index && shareData.data);
+    return hasRequiredFields;
   } catch (error) {
     return false;
   }
@@ -44,7 +46,9 @@ export function parseShareData(shareString) {
   }
 
   try {
-    return JSON.parse(atob(shareString.trim()));
+    const decoded = atob(shareString.trim());
+    const parsed = JSON.parse(decoded);
+    return parsed;
   } catch (error) {
     return null;
   }
@@ -61,12 +65,12 @@ export function validateMnemonic(words) {
   const duplicates = new Set();
 
   // 检查空单词
-  if (words.some(word => !word || word.trim().length === 0)) {
+  if (words.some((word) => !word || word.trim().length === 0)) {
     errors.push('存在空单词，请填写所有助记词');
   }
 
   // 检查重复单词
-  words.forEach(word => {
+  words.forEach((word) => {
     const trimmedWord = word.trim().toLowerCase();
     if (wordSet.has(trimmedWord)) {
       duplicates.add(trimmedWord);
@@ -83,7 +87,7 @@ export function validateMnemonic(words) {
   return {
     isValid: errors.length === 0,
     errors,
-    duplicates: Array.from(duplicates)
+    duplicates: Array.from(duplicates),
   };
 }
 
@@ -97,17 +101,43 @@ export function validateShareCollection(shareStrings) {
   let validCount = 0;
   let threshold = 0;
   const shareIndices = new Set();
+  const thresholdCandidates = new Set();
 
   shareStrings.forEach((shareStr, index) => {
     const shareData = parseShareData(shareStr);
+
     if (shareData) {
       validCount++;
-      threshold = shareData.threshold;
+      // 收集所有可能的阈值
+      if (shareData.threshold) {
+        thresholdCandidates.add(shareData.threshold);
+      }
       shareIndices.add(shareData.index);
     } else {
       errors.push(`第 ${index + 1} 行：无效的分片格式`);
     }
   });
+
+  // 确定最终阈值：如果检测到阈值，使用最常见的；否则使用默认值3
+  if (thresholdCandidates.size > 0) {
+    // 使用最常见的阈值
+    const thresholdCounts = {};
+    thresholdCandidates.forEach((t) => {
+      thresholdCounts[t] = (thresholdCounts[t] || 0) + 1;
+    });
+
+    // 找出出现次数最多的阈值
+    let maxCount = 0;
+    thresholdCandidates.forEach((t) => {
+      if (thresholdCounts[t] > maxCount) {
+        maxCount = thresholdCounts[t];
+        threshold = t;
+      }
+    });
+  } else {
+    // 如果没有检测到有效阈值，使用默认值
+    threshold = 3;
+  }
 
   // 检查是否有足够的有效分片
   if (validCount === 0) {
@@ -121,11 +151,13 @@ export function validateShareCollection(shareStrings) {
     errors.push('检测到重复的分片索引');
   }
 
-  return {
+  const result = {
     isValid: errors.length === 0 && validCount >= threshold,
     validCount,
     threshold,
     errors,
-    shareIndices: Array.from(shareIndices)
+    shareIndices: Array.from(shareIndices),
   };
+
+  return result;
 }

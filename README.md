@@ -38,30 +38,37 @@
 ```
 src/
 ├── components/              # 核心组件
-│   ├── MnemonicInput.js     # 助记词输入组件
-│   └── ShareManager.js      # 分片管理组件
+│   ├── MnemonicInput.js     # 助记词输入组件（支持自动完成、验证、重复检测）
+│   └── ShareManager.js      # 分片管理组件（处理分片生成和恢复）
 ├── utils/                   # 工具函数
-│   ├── dom.js              # DOM 操作工具
-│   ├── validation.js       # 验证工具
-│   └── helpers.js          # 通用工具
+│   ├── dom.js              # DOM 操作工具（安全的元素获取和创建）
+│   ├── validation.js       # 验证工具（BIP39单词验证）
+│   └── helpers.js          # 通用工具（复制、下载、编码等）
 ├── styles/
-│   └── styles.css          # 主样式文件
+│   └── styles.css          # 主样式文件（现代设计系统，支持移动端）
 ├── constants/              # 常量配置
-│   ├── index.js            # 应用常量
+│   ├── index.js            # 应用常量和配置
 │   └── bip39-words.js      # BIP39 单词列表
-└── main.js                 # 应用入口
+└── main.js                 # 应用入口（模块化架构）
 
 根目录/
 ├── index.html              # 主页面
 ├── package.json            # 项目配置
 ├── vite.config.js          # 构建配置
 └── dist/                   # 构建输出
-    └── index.html          # 生产版本
+    └── index.html          # 生产版本（单文件部署）
 ```
+
+### 🏗️ 架构特点
+
+- **模块化设计** - 清晰的组件分离，易于维护和扩展
+- **类型安全** - 完整的参数验证和错误处理
+- **性能优化** - 防抖输入、智能缓存、高效渲染
+- **移动优先** - 完美的移动端适配和触摸优化
+- **无框架依赖** - 原生JavaScript，轻量且快速
 
 ## 🎯 使用方法
 
-### 在线使用
 1. 打开 [应用页面](./index.html)
 2. 选择助记词数量（12或24个单词）
 3. 配置分片总数和恢复阈值

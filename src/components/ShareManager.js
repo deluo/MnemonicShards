@@ -4,10 +4,10 @@
  */
 
 import { split, combine } from 'shamir-secret-sharing';
-import { getElement, createElement, toggleElement, setHTML, clearElement, addEvent } from '../utils/dom.js';
+import { getElement, createElement, toggleElement, toggleClass, setHTML, clearElement, addEvent } from '../utils/dom.js';
 import { copyToClipboard, downloadFile, formatDateTime, base64Encode } from '../utils/helpers.js';
 import { validateMnemonic, validateShareCollection } from '../utils/validation.js';
-import { SELECTORS, CSS_CLASSES, ERROR_MESSAGES, SUCCESS_MESSAGES, FILE_TEMPLATES } from '../constants/index.js';
+import { SELECTORS, CSS_CLASSES, ERROR_MESSAGES, SUCCESS_MESSAGES, INFO_MESSAGES, FILE_TEMPLATES } from '../constants/index.js';
 
 export class ShareManager {
   constructor() {
@@ -42,7 +42,7 @@ export class ShareManager {
           index: index + 1,
           threshold: threshold,
           total: totalShares,
-          data: btoa(String.fromCharCode(...share))
+          data: btoa(String.fromCharCode(...share)),
         };
         return btoa(JSON.stringify(shareData));
       });
@@ -53,7 +53,6 @@ export class ShareManager {
       this.displayShares();
       this.showSuccess(SUCCESS_MESSAGES.SHARES_GENERATED);
       return true;
-
     } catch (error) {
       this.showError(ERROR_MESSAGES.GENERATE_FAILED(error.message));
       return false;
@@ -167,7 +166,9 @@ export class ShareManager {
     const statusDiv = getElement(SELECTORS.INPUT_STATUS);
     const recoverBtn = getElement(SELECTORS.RECOVER_BTN);
 
-    if (!input || !statusDiv || !recoverBtn) return;
+    if (!input || !statusDiv || !recoverBtn) {
+      return;
+    }
 
     const inputText = input.value.trim();
 
@@ -179,8 +180,8 @@ export class ShareManager {
 
     const shareStrings = inputText
       .split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length > 0);
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
 
     if (shareStrings.length === 0) {
       this.updateStatus('waiting', INFO_MESSAGES.WAITING_SHARES);
@@ -192,7 +193,7 @@ export class ShareManager {
 
     if (!validation.isValid) {
       if (validation.validCount === 0) {
-        this.updateStatus('invalid', ERROR_MESSAGES.INVALID_SHARE_FORMAT);
+        this.updateStatus('invalid', INFO_MESSAGES.INVALID_FORMAT);
       } else {
         this.updateStatus('insufficient', ERROR_MESSAGES.INSUFFICIENT_SHARES(validation.validCount, validation.threshold));
       }
@@ -212,9 +213,12 @@ export class ShareManager {
     const resultDiv = getElement(SELECTORS.RECOVER_RESULT);
     const recoverBtn = getElement(SELECTORS.RECOVER_BTN);
 
-    if (!input || !resultDiv || !recoverBtn) return false;
+    if (!input || !resultDiv || !recoverBtn) {
+      return false;
+    }
 
     const inputText = input.value.trim();
+
     if (!inputText) {
       this.showError(ERROR_MESSAGES.EMPTY_WORDS);
       return false;
@@ -227,8 +231,8 @@ export class ShareManager {
     try {
       const shareStrings = inputText
         .split('\n')
-        .map(line => line.trim())
-        .filter(line => line.length > 0);
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
 
       // 解析分片数据
       const validShareData = [];
@@ -248,12 +252,13 @@ export class ShareManager {
       }
 
       const threshold = validShareData[0].threshold;
+
       if (validShareData.length < threshold) {
         throw new Error(ERROR_MESSAGES.INSUFFICIENT_SHARES(validShareData.length, threshold));
       }
 
       // 转换为 Uint8Array 格式
-      const shares = validShareData.slice(0, threshold).map(data => {
+      const shares = validShareData.slice(0, threshold).map((data) => {
         const binaryString = atob(data.data);
         const bytes = new Uint8Array(binaryString.length);
         for (let i = 0; i < binaryString.length; i++) {
@@ -267,7 +272,6 @@ export class ShareManager {
 
       this.displayRecoverResult(recoveredMnemonic, validShareData.length, threshold);
       return true;
-
     } catch (error) {
       this.displayRecoverError(error.message);
       return false;
@@ -277,7 +281,6 @@ export class ShareManager {
       recoverBtn.textContent = '恢复助记词';
     }
   }
-
   /**
    * 显示恢复结果
    * @param {string} mnemonic - 恢复的助记词
@@ -390,14 +393,9 @@ export class ShareManager {
    * 隐藏所有提示
    */
   hideAllAlerts() {
-    const alerts = [
-      SELECTORS.INPUT_ERROR_ALERT,
-      SELECTORS.DUPLICATE_ALERT,
-      SELECTORS.GENERAL_ERROR_ALERT,
-      SELECTORS.SUCCESS_ALERT
-    ];
+    const alerts = [SELECTORS.INPUT_ERROR_ALERT, SELECTORS.DUPLICATE_ALERT, SELECTORS.GENERAL_ERROR_ALERT, SELECTORS.SUCCESS_ALERT];
 
-    alerts.forEach(selector => {
+    alerts.forEach((selector) => {
       const alert = getElement(selector);
       if (alert) {
         toggleElement(alert, false);

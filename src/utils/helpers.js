@@ -141,7 +141,6 @@ export async function copyToClipboard(text) {
       return successful;
     }
   } catch (error) {
-    console.error('Copy failed:', error);
     return false;
   }
 }
@@ -165,7 +164,6 @@ export function downloadFile(content, filename, mimeType = 'text/plain') {
     URL.revokeObjectURL(url);
     return true;
   } catch (error) {
-    console.error('Download failed:', error);
     return false;
   }
 }
@@ -179,7 +177,6 @@ export function base64Encode(str) {
   try {
     return btoa(unescape(encodeURIComponent(str)));
   } catch (error) {
-    console.error('Base64 encode failed:', error);
     return '';
   }
 }
@@ -193,7 +190,6 @@ export function base64Decode(str) {
   try {
     return decodeURIComponent(escape(atob(str)));
   } catch (error) {
-    console.error('Base64 decode failed:', error);
     return '';
   }
 }

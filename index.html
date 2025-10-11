@@ -15,9 +15,7 @@
 
       <div class="main-content">
         <!-- 安全提示 -->
-        <div class="alert security-notice">
-          <strong>安全模式：</strong> 使用专业级 Shamir 秘密分享算法，完全离线运行，数据不会离开您的设备。建议在断网环境中使用以获得最高安全性。
-        </div>
+        <div class="alert security-notice"><strong>安全模式：</strong> 使用专业级 Shamir 秘密分享算法，完全离线运行，数据不会离开您的设备。建议在断网环境中使用以获得最高安全性。</div>
 
         <!-- 配置区域 -->
         <div class="section">
@@ -26,7 +24,7 @@
           <div class="controls">
             <div class="control-group">
               <label>助记词数量</label>
-              <div class="btn-group">
+              <div class="btn-group" id="wordCountButtons">
                 <button id="words12" class="active" onclick="setWordCount(12)">12 个单词</button>
                 <button id="words24" onclick="setWordCount(24)">24 个单词</button>
               </div>
@@ -85,9 +83,7 @@
         <!-- 分片结果区域 -->
         <div id="sharesResult" style="display: none">
           <div class="section-title">生成的分片</div>
-          <div class="alert alert-info">
-            <strong>安全提示：</strong> 请将这些分片分别保存在不同的安全位置。任意 <span id="thresholdDisplay"></span> 个分片即可恢复完整的助记词。
-          </div>
+          <div class="alert alert-info"><strong>安全提示：</strong> 请将这些分片分别保存在不同的安全位置。任意 <span id="thresholdDisplay"></span> 个分片即可恢复完整的助记词。</div>
           <div id="sharesList"></div>
         </div>
 
@@ -121,7 +117,7 @@
             autocapitalize="off"
           ></textarea>
 
-          <button class="action-btn" onclick="recoverMnemonic()" id="recoverBtn" disabled>恢复助记词</button>
+          <button class="action-btn" id="recoverBtn" disabled>恢复助记词</button>
 
           <div id="recoverResult"></div>
         </div>
