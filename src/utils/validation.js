@@ -102,12 +102,14 @@ export function validateShareCollection(shareStrings) {
   let threshold = 0;
   const shareIndices = new Set();
   const thresholdCandidates = new Set();
+  const validShareData = [];
 
   shareStrings.forEach((shareStr, index) => {
     const shareData = parseShareData(shareStr);
 
     if (shareData) {
       validCount++;
+      validShareData.push(shareData);
       // 收集所有可能的阈值
       if (shareData.threshold) {
         thresholdCandidates.add(shareData.threshold);
@@ -118,9 +120,11 @@ export function validateShareCollection(shareStrings) {
     }
   });
 
-  // 确定最终阈值：如果检测到阈值，使用最常见的；否则使用默认值3
-  if (thresholdCandidates.size > 0) {
-    // 使用最常见的阈值
+  // 确定最终阈值：优先使用第一个有效分片的阈值
+  if (validShareData.length > 0 && validShareData[0].threshold) {
+    threshold = validShareData[0].threshold;
+  } else if (thresholdCandidates.size > 0) {
+    // 如果第一个分片没有阈值，使用最常见的阈值
     const thresholdCounts = {};
     thresholdCandidates.forEach((t) => {
       thresholdCounts[t] = (thresholdCounts[t] || 0) + 1;
