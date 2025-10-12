@@ -7,6 +7,8 @@ import { MnemonicInput } from './components/MnemonicInput.js';
 import { ShareManager } from './components/ShareManager.js';
 import { getElement, addEvent, toggleElement, toggleClass } from './utils/dom.js';
 import { APP_CONFIG, MNEMONIC_CONFIG, SELECTORS, CSS_CLASSES } from './constants/index.js';
+import { i18n } from './utils/i18n.js';
+import { LANGUAGES } from './constants/i18n.js';
 
 /**
  * 主应用类
@@ -25,8 +27,10 @@ class MnemonicSplitApp {
    */
   init() {
     this.setupEventListeners();
+    this.setupLanguageSwitcher();
     this.updateThresholdOptions();
     this.setInitialState();
+    i18n.init();
   }
 
   /**
@@ -79,6 +83,107 @@ class MnemonicSplitApp {
 
     // 键盘快捷键
     addEvent(document, 'keydown', (e) => this.handleKeyboardShortcuts(e));
+  }
+
+  /**
+   * 设置语言切换器
+   */
+  setupLanguageSwitcher() {
+    const langButtons = document.querySelectorAll('.language-btn');
+
+    langButtons.forEach((button) => {
+      const lang = button.getAttribute('data-lang');
+
+      addEvent(button, 'click', (e) => {
+        e.preventDefault();
+        if (lang === LANGUAGES.EN || lang === LANGUAGES.ZH) {
+          this.switchLanguage(lang);
+        }
+      });
+    });
+
+    // 监听语言变化
+    i18n.addListener((lang) => {
+      this.updateLanguageUI(lang);
+      this.updateDynamicContent();
+    });
+
+    // 初始化语言UI
+    this.updateLanguageUI(i18n.getCurrentLanguage());
+  }
+
+  /**
+   * 切换语言
+   * @param {string} language - 语言代码
+   */
+  switchLanguage(language) {
+    i18n.setLanguage(language);
+  }
+
+  /**
+   * 更新语言UI
+   * @param {string} language - 语言代码
+   */
+  updateLanguageUI(language) {
+    const langButtons = document.querySelectorAll('.language-btn');
+
+    langButtons.forEach((button) => {
+      const buttonLang = button.getAttribute('data-lang');
+      if (buttonLang === language) {
+        button.classList.add('active');
+      } else {
+        button.classList.remove('active');
+      }
+    });
+  }
+
+  /**
+   * 更新动态内容
+   */
+  updateDynamicContent() {
+    // 更新select选项
+    this.updateThresholdOptions();
+    this.updateTotalSharesOptions();
+
+    // 更新placeholder属性
+    this.updatePlaceholders();
+  }
+
+  /**
+   * 更新分片数量选项
+   */
+  updateTotalSharesOptions() {
+    const totalSharesSelect = getElement(SELECTORS.TOTAL_SHARES);
+    if (!totalSharesSelect) return;
+
+    const currentValue = totalSharesSelect.value;
+    const options = [{ value: '3' }, { value: '4' }, { value: '5' }, { value: '6' }, { value: '7' }];
+
+    totalSharesSelect.innerHTML = '';
+    options.forEach((option) => {
+      const optionElement = document.createElement('option');
+      optionElement.value = option.value;
+      optionElement.textContent = i18n.t('sharesOption', parseInt(option.value));
+
+      if (option.value === currentValue) {
+        optionElement.selected = true;
+      }
+
+      totalSharesSelect.appendChild(optionElement);
+    });
+  }
+
+  /**
+   * 更新placeholder属性
+   */
+  updatePlaceholders() {
+    const recoverInput = getElement(SELECTORS.RECOVER_INPUT);
+    if (recoverInput) {
+      const placeholderKey = recoverInput.getAttribute('data-i18n-placeholder');
+      if (placeholderKey) {
+        recoverInput.placeholder = i18n.t(placeholderKey);
+      }
+    }
   }
 
   /**
@@ -137,7 +242,7 @@ class MnemonicSplitApp {
     for (let i = 2; i <= totalShares; i++) {
       const option = document.createElement('option');
       option.value = i;
-      option.textContent = `${i} 个分片`;
+      option.textContent = i18n.t('sharesOption', i);
 
       if (i === Math.min(currentThreshold, totalShares)) {
         option.selected = true;
@@ -155,9 +260,9 @@ class MnemonicSplitApp {
 
     if (!validation.isValid) {
       if (validation.hasEmpty) {
-        this.shareManager.showError('请填写所有助记词！');
+        this.shareManager.showError(i18n.t('errors.fillAllWords'));
       } else if (validation.hasInvalidWord) {
-        this.shareManager.showError(`第 ${validation.invalidWordIndex} 个单词不是有效的 BIP39 单词，请从建议列表中选择有效的单词。`);
+        this.shareManager.showError(i18n.t('errors.invalidWord', validation.invalidWordIndex));
         this.focusInvalidInput(validation.invalidWordIndex);
       }
       return;

@@ -1,136 +1,142 @@
 # MnemonicShards
 
-一个安全、专业的助记词分片工具，使用 Shamir 秘密分享算法将您的助记词分割成多个分片，任意指定数量的分片即可恢复原始助记词。
+English | [简体中文](./README_ZH.md)
 
-## 🔒 安全特性
+A secure, professional mnemonic phrase splitting tool that uses Shamir's Secret Sharing algorithm to split your mnemonic phrase into multiple shards. Any specified number of shards can recover the original mnemonic.
 
-- **完全离线运行** - 数据不会离开您的设备
-- **专业级加密** - 使用标准 Shamir 秘密分享算法
-- **客户端处理** - 所有计算在浏览器中完成
-- **开源透明** - 代码完全开源，可自行审查
+## 🔒 Security Features
 
-## 🚀 核心功能
+- **Completely Offline Operation** - Data never leaves your device
+- **Professional-grade Encryption** - Uses standard Shamir's Secret Sharing algorithm
+- **Client-side Processing** - All computations completed in the browser
+- **Open Source & Transparent** - Code is fully open source and can be audited
 
-- ✅ 支持 12/24 个助记词输入
-- ✅ BIP39 标准单词验证
-- ✅ 智能自动完成建议
-- ✅ 重复单词检测
-- ✅ 灵活的分片配置（3-7个分片）
-- ✅ 自定义恢复阈值（2-5个分片）
-- ✅ 一键复制/下载分片
-- ✅ 移动端完美适配
+## 🚀 Core Features
 
-## 🛠️ 技术栈
+- ✅ Support for 12/24 word mnemonic phrases
+- ✅ BIP39 standard word validation
+- ✅ Smart auto-complete suggestions
+- ✅ Duplicate word detection
+- ✅ Flexible shard configuration (3-7 shards)
+- ✅ Custom recovery threshold (2-5 shards)
+- ✅ One-click copy/download shards
+- ✅ Perfect mobile adaptation
 
-### 核心依赖
-- **[shamir-secret-sharing](https://www.npmjs.com/package/shamir-secret-sharing)** - 专业级 Shamir 秘密分享算法实现
-  - 标准密码学算法，安全可靠
-  - 经过同行评议的加密库
-  - 支持灵活的阈值配置
+## 🛠️ Technology Stack
 
-### 开发工具
-- **Vite** - 现代前端构建工具
-- **原生 JavaScript** - 无框架依赖，轻量高效
-- **CSS3** - 现代样式和动画
+### Core Dependencies
 
-## 📁 项目结构
+- **[shamir-secret-sharing](https://www.npmjs.com/package/shamir-secret-sharing)** - Professional-grade Shamir's Secret Sharing algorithm implementation
+  - Standard cryptographic algorithm, secure and reliable
+  - Peer-reviewed cryptographic library
+  - Supports flexible threshold configuration
+
+### Development Tools
+
+- **Vite** - Modern frontend build tool
+- **Native JavaScript** - No framework dependencies, lightweight and efficient
+- **CSS3** - Modern styling and animations
+
+## 📁 Project Structure
 
 ```
 src/
-├── components/              # 核心组件
-│   ├── MnemonicInput.js     # 助记词输入组件（支持自动完成、验证、重复检测）
-│   └── ShareManager.js      # 分片管理组件（处理分片生成和恢复）
-├── utils/                   # 工具函数
-│   ├── dom.js              # DOM 操作工具（安全的元素获取和创建）
-│   ├── validation.js       # 验证工具（BIP39单词验证）
-│   └── helpers.js          # 通用工具（复制、下载、编码等）
+├── components/              # Core components
+│   ├── MnemonicInput.js     # Mnemonic input component (supports auto-complete, validation, duplicate detection)
+│   └── ShareManager.js      # Shard management component (handles shard generation and recovery)
+├── utils/                   # Utility functions
+│   ├── dom.js              # DOM manipulation utilities (safe element retrieval and creation)
+│   ├── validation.js       # Validation utilities (BIP39 word validation)
+│   └── helpers.js          # General utilities (copy, download, encoding, etc.)
 ├── styles/
-│   └── styles.css          # 主样式文件（现代设计系统，支持移动端）
-├── constants/              # 常量配置
-│   ├── index.js            # 应用常量和配置
-│   └── bip39-words.js      # BIP39 单词列表
-└── main.js                 # 应用入口（模块化架构）
+│   └── styles.css          # Main stylesheet (modern design system, mobile support)
+├── constants/              # Constants configuration
+│   ├── index.js            # Application constants and configuration
+│   └── bip39-words.js      # BIP39 word list
+└── main.js                 # Application entry point (modular architecture)
 
-根目录/
-├── index.html              # 主页面
-├── package.json            # 项目配置
-├── vite.config.js          # 构建配置
-└── dist/                   # 构建输出
-    └── index.html          # 生产版本（单文件部署）
+Root directory/
+├── index.html              # Main page
+├── package.json            # Project configuration
+├── vite.config.js          # Build configuration
+└── dist/                   # Build output
+    └── index.html          # Production version (single file deployment)
 ```
 
-### 🏗️ 架构特点
+### 🏗️ Architecture Features
 
-- **模块化设计** - 清晰的组件分离，易于维护和扩展
-- **类型安全** - 完整的参数验证和错误处理
-- **性能优化** - 防抖输入、智能缓存、高效渲染
-- **移动优先** - 完美的移动端适配和触摸优化
-- **无框架依赖** - 原生JavaScript，轻量且快速
+- **Modular Design** - Clear component separation, easy to maintain and extend
+- **Type Safety** - Complete parameter validation and error handling
+- **Performance Optimization** - Debounced input, smart caching, efficient rendering
+- **Mobile-first** - Perfect mobile adaptation and touch optimization
+- **Framework-free** - Native JavaScript, lightweight and fast
 
-## 🎯 使用方法
+## 🎯 How to Use
 
-1. 打开 [应用页面](./index.html)
-2. 选择助记词数量（12或24个单词）
-3. 配置分片总数和恢复阈值
-4. 输入助记词，系统会自动验证每个单词
-5. 点击"生成分片"生成多个分片
-6. 将分片分别保存在不同的安全位置
-7. 需要恢复时，输入任意指定数量的分片即可
+1. Open the [application page](./index.html)
+2. Select mnemonic word count (12 or 24 words)
+3. Configure total shards and recovery threshold
+4. Enter your mnemonic phrase, the system will automatically validate each word
+5. Click "Generate Shares" to create multiple shards
+6. Save the shards in different secure locations
+7. When recovery is needed, input any specified number of shards
 
-### 本地开发
+### Local Development
+
 ```bash
-# 克隆项目
+# Clone the project
 git clone <repository-url>
 cd MnemonicShards
 
-# 安装依赖
+# Install dependencies
 npm install
 
-# 启动开发服务器
+# Start development server
 npm run dev
-# 访问 http://localhost:5174
+# Visit http://localhost:5174
 
-# 构建生产版本
+# Build production version
 npm run build
-# 查看 dist/index.html
+# View dist/index.html
 ```
 
-## 📱 安全建议
+## 📱 Security Recommendations
 
-1. **离线环境使用** - 建议在断网环境中使用此工具
-2. **分散存储** - 将分片保存在不同的物理位置
-3. **安全介质** - 使用加密的USB驱动器或纸质备份
-4. **定期验证** - 定期测试分片的恢复功能
-5. **分片保护** - 不要将分片分享给不信任的人
+1. **Use in Offline Environment** - Recommended to use this tool in a disconnected environment
+2. **Distributed Storage** - Store shards in different physical locations
+3. **Secure Media** - Use encrypted USB drives or paper backups
+4. **Regular Verification** - Regularly test the recovery functionality of shards
+5. **Shard Protection** - Do not share shards with untrusted parties
 
-## 🔧 分片配置示例
+## 🔧 Shard Configuration Examples
 
-| 配置 | 总分片数 | 恢复阈值 | 安全性 | 便利性 |
-|------|---------|---------|--------|--------|
-| 保守 | 7       | 5       | ⭐⭐⭐⭐⭐ | ⭐⭐ |
-| 平衡 | 5       | 3       | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
-| 便捷 | 3       | 2       | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
+| Configuration | Total Shards | Recovery Threshold | Security   | Convenience |
+| ------------- | ------------ | ------------------ | ---------- | ----------- |
+| Conservative  | 7            | 5                  | ⭐⭐⭐⭐⭐ | ⭐⭐        |
+| Balanced      | 5            | 3                  | ⭐⭐⭐⭐   | ⭐⭐⭐⭐    |
+| Convenient    | 3            | 2                  | ⭐⭐⭐     | ⭐⭐⭐⭐⭐  |
 
-## 🌟 浏览器支持
+## 🌟 Browser Support
 
 - Chrome 88+
 - Firefox 85+
 - Safari 14+
 - Edge 88+
-- 移动端浏览器
+- Mobile browsers
 
-## ⚠️ 免责声明
+## ⚠️ Disclaimer
 
-本工具仅供教育和研究目的使用。用户应：
-- 自行承担使用风险
-- 确保理解 Shamir 秘密分享的工作原理
-- 在使用前进行充分测试
-- 妥善保管生成的分片
+This tool is for educational and research purposes only. Users should:
 
-## 📄 许可证
+- Assume all usage risks
+- Ensure understanding of how Shamir's Secret Sharing works
+- Conduct thorough testing before use
+- Properly safeguard generated shards
+
+## 📄 License
 
 ISC License
 
 ---
 
-**⚡ MnemonicShards**: 单文件部署，无服务器要求，完全客户端运行
+**⚡ MnemonicShards**: Single file deployment, no server requirements, completely client-side operation
