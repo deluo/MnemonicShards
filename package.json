@@ -1,7 +1,7 @@
 {
-  "name": "seed-split",
+  "name": "mnemonic-shards",
   "version": "1.0.0",
-  "description": "Shamir Secret Sharing",
+  "description": "Memonic seed phrase splitting tool using Shamir Secret Sharing",
   "main": "index.js",
   "type": "module",
   "scripts": {
@@ -12,9 +12,13 @@
     "preview": "vite preview"
   },
   "keywords": [
+    "mnemonic",
+    "seed-phrase",
     "shamir",
     "secret-sharing",
-    "cryptography"
+    "cryptography",
+    "backup",
+    "wallet"
   ],
   "author": "",
   "license": "ISC",

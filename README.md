@@ -1,4 +1,4 @@
-# 助记词分片工具
+# MnemonicShards
 
 一个安全、专业的助记词分片工具，使用 Shamir 秘密分享算法将您的助记词分割成多个分片，任意指定数量的分片即可恢复原始助记词。
 
@@ -81,7 +81,7 @@ src/
 ```bash
 # 克隆项目
 git clone <repository-url>
-cd Seed-Split-Tool
+cd MnemonicShards
 
 # 安装依赖
 npm install
@@ -133,4 +133,4 @@ ISC License
 
 ---
 
-**⚡ 构建信息**: 单文件部署，无服务器要求，完全客户端运行
+**⚡ MnemonicShards**: 单文件部署，无服务器要求，完全客户端运行

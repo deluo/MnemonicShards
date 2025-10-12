@@ -4,7 +4,7 @@
 
 // 应用信息
 export const APP_CONFIG = {
-  NAME: '助记词分片工具',
+  NAME: 'MnemonicShards',
   DESCRIPTION: '安全地将助记词分割成多个分片，任意指定数量的分片即可恢复原始助记词',
   VERSION: '1.0.0'
 };
@@ -151,7 +151,7 @@ export const INFO_MESSAGES = {
 // 文件模板
 export const FILE_TEMPLATES = {
   SHARE_CONTENT: (index, content) =>
-    `助记词分片 ${index}\n${'='.repeat(50)}\n\n分片内容：\n${content}\n\n${'='.repeat(50)}\n生成时间：${new Date().toLocaleString()}\n\n安全提示：\n- 请将此文件保存在安全的位置\n- 不要将分片分享给不信任的人\n- 任意指定数量的分片即可恢复原始助记词`
+    `MnemonicShards 分片 ${index}\n${'='.repeat(50)}\n\n分片内容：\n${content}\n\n${'='.repeat(50)}\n生成时间：${new Date().toLocaleString()}\n\n安全提示：\n- 请将此文件保存在安全的位置\n- 不要将分片分享给不信任的人\n- 任意指定数量的分片即可恢复原始助记词`
 };
 
 // BIP39相关
