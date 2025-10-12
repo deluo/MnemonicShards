@@ -8,6 +8,7 @@ import { getElement, createElement, toggleElement, toggleClass, setHTML, clearEl
 import { copyToClipboard, downloadFile, formatDateTime, base64Encode } from '../utils/helpers.js';
 import { validateMnemonic, validateShareCollection } from '../utils/validation.js';
 import { SELECTORS, CSS_CLASSES, ERROR_MESSAGES, SUCCESS_MESSAGES, INFO_MESSAGES, FILE_TEMPLATES } from '../constants/index.js';
+import { t } from '../utils/i18n.js';
 
 export class ShareManager {
   constructor() {
@@ -92,16 +93,16 @@ export class ShareManager {
     const header = createElement('div', ['share-header']);
 
     const title = createElement('div', ['share-title']);
-    title.textContent = `分片 ${index}`;
+    title.textContent = t('share', index);
 
     const buttons = createElement('div', ['share-buttons']);
 
     const copyBtn = createElement('button', ['copy-btn']);
-    copyBtn.textContent = '复制';
+    copyBtn.textContent = t('copy');
     addEvent(copyBtn, 'click', () => this.copyShare(copyBtn, share));
 
     const downloadBtn = createElement('button', ['download-btn']);
-    downloadBtn.textContent = '下载';
+    downloadBtn.textContent = t('download');
     addEvent(downloadBtn, 'click', () => this.downloadShare(share, index));
 
     buttons.appendChild(copyBtn);
@@ -129,7 +130,7 @@ export class ShareManager {
 
     if (success) {
       const originalText = button.textContent;
-      button.textContent = '已复制';
+      button.textContent = t('success.copySuccess');
       toggleClass(button, CSS_CLASSES.COPIED, true);
 
       setTimeout(() => {
@@ -137,7 +138,7 @@ export class ShareManager {
         toggleClass(button, CSS_CLASSES.COPIED, false);
       }, 2000);
     } else {
-      this.showError(ERROR_MESSAGES.COPY_FAILED);
+      this.showError(t('errors.copyFailed'));
     }
   }
 
@@ -147,15 +148,27 @@ export class ShareManager {
    * @param {number} shareIndex - 分片索引
    */
   downloadShare(shareContent, shareIndex) {
-    const fileContent = FILE_TEMPLATES.SHARE_CONTENT(shareIndex, shareContent);
-    const filename = `分片${shareIndex}.txt`;
+    const fileData = FILE_TEMPLATES.SHARE_CONTENT(shareIndex, shareContent);
+    const fileContent = this.formatShareFileContent(fileData);
+    const filename = `${t('shareFilePrefix')}${shareIndex}.txt`;
 
     const success = downloadFile(fileContent, filename);
     if (success) {
-      this.showSuccess(SUCCESS_MESSAGES.SHARE_DOWNLOADED(shareIndex));
+      this.showSuccess(t('success.shareDownloaded', shareIndex));
     } else {
-      this.showError(ERROR_MESSAGES.DOWNLOAD_FAILED);
+      this.showError(t('errors.downloadFailed'));
     }
+  }
+
+  /**
+   * 格式化分片文件内容
+   * @param {Object} fileData - 文件数据
+   * @returns {string} 格式化后的文件内容
+   */
+  formatShareFileContent(fileData) {
+    return `${t('fileTemplate.appName')} ${t('share', fileData.index)}\n${'='.repeat(50)}\n\n${t('fileTemplate.shareContent')}:\n${fileData.content}\n\n${'='.repeat(50)}\n${t(
+      'fileTemplate.generatedTime',
+    )}: ${fileData.timestamp}\n\n${t('fileTemplate.securityTips')}:\n- ${t('fileTemplate.tip1')}\n- ${t('fileTemplate.tip2')}\n- ${t('fileTemplate.tip3')}`;
   }
 
   /**
@@ -173,7 +186,7 @@ export class ShareManager {
     const inputText = input.value.trim();
 
     if (!inputText) {
-      this.updateStatus('waiting', INFO_MESSAGES.WAITING_SHARES);
+      this.updateStatus('waiting', t('waitingForInput'));
       recoverBtn.disabled = true;
       return;
     }
@@ -184,7 +197,7 @@ export class ShareManager {
       .filter((line) => line.length > 0);
 
     if (shareStrings.length === 0) {
-      this.updateStatus('waiting', INFO_MESSAGES.WAITING_SHARES);
+      this.updateStatus('waiting', t('waitingForInput'));
       recoverBtn.disabled = true;
       return;
     }
@@ -193,13 +206,13 @@ export class ShareManager {
 
     if (!validation.isValid) {
       if (validation.validCount === 0) {
-        this.updateStatus('invalid', INFO_MESSAGES.INVALID_FORMAT);
+        this.updateStatus('invalid', t('errors.invalidShareFormat'));
       } else {
-        this.updateStatus('insufficient', ERROR_MESSAGES.INSUFFICIENT_SHARES(validation.validCount, validation.threshold));
+        this.updateStatus('insufficient', t('errors.insufficientShares', validation.threshold, validation.validCount));
       }
       recoverBtn.disabled = true;
     } else {
-      this.updateStatus('valid', INFO_MESSAGES.VALID_SHARES(validation.validCount, validation.threshold));
+      this.updateStatus('valid', t('info.validShares', validation.validCount, validation.threshold));
       recoverBtn.disabled = false;
     }
   }
@@ -226,7 +239,7 @@ export class ShareManager {
 
     // 显示处理状态
     recoverBtn.disabled = true;
-    recoverBtn.textContent = '正在恢复...';
+    recoverBtn.textContent = t('info.recovering');
 
     try {
       const shareStrings = inputText
@@ -248,13 +261,13 @@ export class ShareManager {
       }
 
       if (validShareData.length === 0) {
-        throw new Error(ERROR_MESSAGES.NO_VALID_SHARES);
+        throw new Error(t('errors.noValidShares'));
       }
 
       const threshold = validShareData[0].threshold;
 
       if (validShareData.length < threshold) {
-        throw new Error(ERROR_MESSAGES.INSUFFICIENT_SHARES(validShareData.length, threshold));
+        throw new Error(t('errors.insufficientShares', threshold, validShareData.length));
       }
 
       // 转换为 Uint8Array 格式
@@ -278,7 +291,7 @@ export class ShareManager {
     } finally {
       // 恢复按钮状态
       recoverBtn.disabled = false;
-      recoverBtn.textContent = '恢复助记词';
+      recoverBtn.textContent = t('recoverBtn');
     }
   }
   /**
@@ -293,10 +306,10 @@ export class ShareManager {
 
     const resultHTML = `
       <div class="alert alert-success">
-        <strong>恢复成功！</strong><br>
-        <strong>助记词：</strong><span style="font-family: 'Courier New', monospace; background: #f8f9fa; padding: 2px 6px; border-radius: 4px;">${mnemonic}</span><br>
-        <strong>使用分片数：</strong>${usedShares} 个（需要 ${threshold} 个）<br>
-        <strong>恢复时间：</strong>${formatDateTime()}
+        <strong>${t('success.recoverySuccess')}</strong><br>
+        <strong>${t('mnemonic')}：</strong><span style="font-family: 'Courier New', monospace; background: #f8f9fa; padding: 2px 6px; border-radius: 4px;">${mnemonic}</span><br>
+        <strong>${t('sharesUsed')}：</strong>${usedShares} ${t('shares')}（${t('need')} ${threshold} ${t('shares')}）<br>
+        <strong>${t('recoveryTime')}：</strong>${formatDateTime()}
       </div>
     `;
 
@@ -313,8 +326,8 @@ export class ShareManager {
 
     const errorHTML = `
       <div class="alert alert-error">
-        <strong>恢复失败：</strong>${errorMessage}<br>
-        <small>请检查分片格式是否正确，确保每行一个完整的分片</small>
+        <strong>${t('errors.recoveryFailed')}</strong>${errorMessage}<br>
+        <small>${t('errors.checkShareFormat')}</small>
       </div>
     `;
 

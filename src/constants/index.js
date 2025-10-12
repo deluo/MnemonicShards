@@ -6,7 +6,7 @@
 export const APP_CONFIG = {
   NAME: 'MnemonicShards',
   DESCRIPTION: '安全地将助记词分割成多个分片，任意指定数量的分片即可恢复原始助记词',
-  VERSION: '1.0.0'
+  VERSION: '1.0.0',
 };
 
 // 助记词配置
@@ -16,7 +16,7 @@ export const MNEMONIC_CONFIG = {
   MIN_SHARES: 3,
   MAX_SHARES: 7,
   DEFAULT_TOTAL_SHARES: 5,
-  DEFAULT_THRESHOLD: 3
+  DEFAULT_THRESHOLD: 3,
 };
 
 // UI配置
@@ -28,7 +28,7 @@ export const UI_CONFIG = {
   ANIMATION_DURATION: {
     FAST: 150,
     NORMAL: 200,
-    SLOW: 300
+    SLOW: 300,
   },
 
   // 延迟时间（毫秒）
@@ -36,21 +36,21 @@ export const UI_CONFIG = {
     DEBOUNCE: 100,
     AUTO_HIDE_ALERT: 3000,
     BLUR_DELAY: 200,
-    COPY_FEEDBACK: 2000
+    COPY_FEEDBACK: 2000,
   },
 
   // 建议列表配置
   SUGGESTIONS: {
     MAX_SUGGESTIONS: 5,
     MOBILE_MAX_HEIGHT: '150px',
-    MOBILE_BOTTOM_OFFSET: '20px'
+    MOBILE_BOTTOM_OFFSET: '20px',
   },
 
   // 文件下载配置
   DOWNLOAD: {
-    FILE_PREFIX: '分片',
-    FILE_EXTENSION: '.txt'
-  }
+    FILE_PREFIX: 'shareFilePrefix', // 国际化键
+    FILE_EXTENSION: '.txt',
+  },
 };
 
 // DOM选择器
@@ -88,7 +88,7 @@ export const SELECTORS = {
 
   // 动态生成
   WORD_INPUT: (index) => `#word${index}`,
-  SUGGESTIONS: (index) => `#suggestions${index}`
+  SUGGESTIONS: (index) => `#suggestions${index}`,
 };
 
 // CSS类名
@@ -117,7 +117,7 @@ export const CSS_CLASSES = {
   INPUT_INSUFFICIENT: 'insufficient',
 
   // 按钮状态
-  COPIED: 'copied'
+  COPIED: 'copied',
 };
 
 // 错误消息
@@ -131,30 +131,36 @@ export const ERROR_MESSAGES = {
   COPY_FAILED: '复制失败，请手动复制',
   DOWNLOAD_FAILED: '下载失败，请重试',
   GENERATE_FAILED: (error) => `生成分片失败: ${error}`,
-  RECOVER_FAILED: (error) => `恢复失败：${error}`
+  RECOVER_FAILED: (error) => `恢复失败：${error}`,
 };
 
 // 成功消息
 export const SUCCESS_MESSAGES = {
   SHARES_GENERATED: '分片生成成功！请安全保存这些分片。',
   SHARE_DOWNLOADED: (index) => `分片 ${index} 已下载`,
-  SHARE_COPIED: '已复制到剪贴板'
+  SHARE_COPIED: '已复制到剪贴板',
 };
 
 // 信息消息
 export const INFO_MESSAGES = {
   WAITING_SHARES: '等待输入分片...',
   VALID_SHARES: (valid, threshold) => `检测到 ${valid} 个有效分片（需要 ${threshold} 个），可以开始恢复`,
-  INVALID_FORMAT: '分片格式错误，请检查输入'
+  INVALID_FORMAT: '分片格式错误，请检查输入',
 };
 
 // 文件模板
 export const FILE_TEMPLATES = {
-  SHARE_CONTENT: (index, content) =>
-    `MnemonicShards 分片 ${index}\n${'='.repeat(50)}\n\n分片内容：\n${content}\n\n${'='.repeat(50)}\n生成时间：${new Date().toLocaleString()}\n\n安全提示：\n- 请将此文件保存在安全的位置\n- 不要将分片分享给不信任的人\n- 任意指定数量的分片即可恢复原始助记词`
+  SHARE_CONTENT: (index, content) => {
+    // 这些将在使用时通过国际化函数处理
+    return {
+      index,
+      content,
+      timestamp: new Date().toLocaleString(),
+    };
+  },
 };
 
 // BIP39相关
 export const BIP39_CONFIG = {
-  WORDLIST_URL: './constants/bip39-words.js'
+  WORDLIST_URL: './constants/bip39-words.js',
 };

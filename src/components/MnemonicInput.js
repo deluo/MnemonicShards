@@ -8,6 +8,7 @@ import { isValidBIP39Word } from '../utils/validation.js';
 import { debounce, isMobile } from '../utils/helpers.js';
 import { BIP39_WORDLIST } from '../constants/bip39-words.js';
 import { UI_CONFIG, SELECTORS, CSS_CLASSES } from '../constants/index.js';
+import { t } from '../utils/i18n.js';
 
 export class MnemonicInput {
   constructor(wordCount = 12) {
@@ -60,7 +61,7 @@ export class MnemonicInput {
     const label = createElement('label', [], {
       for: `word${index}`,
     });
-    label.textContent = `${index}. 单词`;
+    label.textContent = t('wordLabel', index);
 
     const suggestionsDiv = createElement('div', ['autocomplete-suggestions'], {
       id: `suggestions${index}`,
@@ -158,7 +159,7 @@ export class MnemonicInput {
   showInvalidWordError(index) {
     const errorAlert = getElement(SELECTORS.INPUT_ERROR_ALERT);
     if (errorAlert) {
-      errorAlert.innerHTML = `<strong>无效助记词：</strong> 第 ${index} 个输入框中的单词不是有效的 BIP39 单词，已自动清空。请从建议列表中选择有效的单词。`;
+      errorAlert.innerHTML = t('errors.invalidWordCleared', index);
       toggleElement(errorAlert, true);
 
       setTimeout(() => {
@@ -422,10 +423,10 @@ export class MnemonicInput {
       let duplicateDetails = '';
       for (const [word, positions] of duplicatePositions) {
         if (duplicateDetails) duplicateDetails += '<br>';
-        duplicateDetails += `<strong>${word}</strong>: 位置 ${positions.join(', ')}`;
+        duplicateDetails += `<strong>${word}</strong>: ${t('position')} ${positions.join(', ')}`;
       }
 
-      duplicateAlert.innerHTML = `<strong>检测到重复单词：</strong><br>${duplicateDetails}<br><small>助记词中的单词应该是唯一的，请检查并修改重复的单词。</small>`;
+      duplicateAlert.innerHTML = `<strong>${t('warnings.duplicateWordsDetected')}</strong><br>${duplicateDetails}<br><small>${t('warnings.uniqueWordsNote')}</small>`;
       toggleElement(duplicateAlert, true);
     } else {
       toggleElement(duplicateAlert, false);
