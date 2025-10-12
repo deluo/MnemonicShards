@@ -14,6 +14,7 @@ export class ShareManager {
   constructor() {
     this.currentShares = [];
     this.currentThreshold = 0;
+    this.copiedShares = new Set(); // 跟踪已复制的分片索引
   }
 
   /**
@@ -49,6 +50,9 @@ export class ShareManager {
       });
 
       this.currentThreshold = threshold;
+
+      // 重置复制状态
+      this.copiedShares.clear();
 
       // 显示分片
       this.displayShares();
@@ -98,8 +102,16 @@ export class ShareManager {
     const buttons = createElement('div', ['share-buttons']);
 
     const copyBtn = createElement('button', ['copy-btn']);
-    copyBtn.textContent = t('copy');
-    addEvent(copyBtn, 'click', () => this.copyShare(copyBtn, share));
+
+    // 检查这个分片是否已经被复制过
+    if (this.copiedShares.has(index)) {
+      copyBtn.textContent = t('success.copySuccess');
+      toggleClass(copyBtn, CSS_CLASSES.COPIED, true);
+    } else {
+      copyBtn.textContent = t('copy');
+    }
+
+    addEvent(copyBtn, 'click', () => this.copyShare(copyBtn, share, index));
 
     const downloadBtn = createElement('button', ['download-btn']);
     downloadBtn.textContent = t('download');
@@ -124,19 +136,17 @@ export class ShareManager {
    * 复制分片
    * @param {Element} button - 复制按钮
    * @param {string} shareContent - 分片内容
+   * @param {number} shareIndex - 分片索引
    */
-  async copyShare(button, shareContent) {
+  async copyShare(button, shareContent, shareIndex) {
     const success = await copyToClipboard(shareContent);
 
     if (success) {
-      const originalText = button.textContent;
+      // 永久标记这个分片为已复制
+      this.copiedShares.add(shareIndex);
+
       button.textContent = t('success.copySuccess');
       toggleClass(button, CSS_CLASSES.COPIED, true);
-
-      setTimeout(() => {
-        button.textContent = originalText;
-        toggleClass(button, CSS_CLASSES.COPIED, false);
-      }, 2000);
     } else {
       this.showError(t('errors.copyFailed'));
     }
@@ -207,6 +217,8 @@ export class ShareManager {
     if (!validation.isValid) {
       if (validation.validCount === 0) {
         this.updateStatus('invalid', t('errors.invalidShareFormat'));
+      } else if (validation.errors && validation.errors.some((error) => error.includes('检测到重复的分片索引'))) {
+        this.updateStatus('invalid', t('errors.duplicateShares'));
       } else {
         this.updateStatus('insufficient', t('errors.insufficientShares', validation.threshold, validation.validCount));
       }
@@ -422,5 +434,6 @@ export class ShareManager {
   destroy() {
     this.currentShares = [];
     this.currentThreshold = 0;
+    this.copiedShares.clear();
   }
 }

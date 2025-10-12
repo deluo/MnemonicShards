@@ -291,7 +291,7 @@ select:hover {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: var(--space-lg);
-  margin-bottom: var(--space-xl);
+  margin-bottom: var(--space-2xl);
 }
 
 .word-input {
@@ -580,6 +580,11 @@ select:hover {
   overflow-wrap: break-word;
   color: var(--color-text);
   font-weight: 500;
+}
+
+/* 恢复按钮与底部内容框之间的间距 */
+#recoverBtn {
+  margin-bottom: var(--space-xl);
 }
 
 .recover-input:focus {
