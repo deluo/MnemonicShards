@@ -15,6 +15,13 @@ export class MnemonicInput {
     this.wordCount = wordCount;
     this.autocompleteTimeouts = new Map();
     this.suggestionCache = new Map();
+
+    // 监听语言变化
+    import('../utils/i18n.js').then(({ i18n }) => {
+      i18n.addListener(() => {
+        this.renderInputs();
+      });
+    });
   }
 
   /**
@@ -33,11 +40,30 @@ export class MnemonicInput {
     const container = getElement(SELECTORS.WORDS_GRID);
     if (!container) return;
 
+    // 保存当前输入的值
+    const currentValues = new Map();
+    for (let i = 1; i <= this.wordCount; i++) {
+      const input = getElement(SELECTORS.WORD_INPUT(i));
+      if (input && input.value.trim()) {
+        currentValues.set(i, input.value.trim());
+      }
+    }
+
     clearElement(container);
 
     for (let i = 1; i <= this.wordCount; i++) {
       const wordInput = this.createWordInput(i);
       container.appendChild(wordInput);
+
+      // 恢复之前输入的值
+      if (currentValues.has(i)) {
+        const input = getElement(SELECTORS.WORD_INPUT(i));
+        if (input) {
+          input.value = currentValues.get(i);
+          // 恢复验证样式
+          this.validateAndStyleInput(input, i);
+        }
+      }
     }
   }
 
@@ -54,7 +80,7 @@ export class MnemonicInput {
     const input = createElement('input', [], {
       type: 'text',
       id: `word${index}`,
-      placeholder: ' ',
+      placeholder: '',
       autocomplete: 'off',
     });
 

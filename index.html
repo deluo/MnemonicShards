@@ -24,7 +24,10 @@
 
       <div class="main-content">
         <!-- 安全提示 -->
-        <div class="alert security-notice" data-i18n="securityNotice"><strong>Security Mode:</strong> Using professional-grade Shamir Secret Sharing algorithm, runs completely offline, data never leaves your device. Recommended to use in disconnected environment for maximum security.</div>
+        <div class="alert security-notice" data-i18n="securityNotice">
+          <strong>Security Mode:</strong> Using professional-grade Shamir Secret Sharing algorithm, runs completely offline, data never leaves your device. Recommended to use in disconnected
+          environment for maximum security.
+        </div>
 
         <!-- 配置区域 -->
         <div class="section">
@@ -92,7 +95,9 @@
         <!-- 分片结果区域 -->
         <div id="sharesResult" style="display: none">
           <div class="section-title" data-i18n="sharesTitle">Generated Shares</div>
-          <div class="alert alert-info" data-i18n="securityTip"><strong>Security Tip:</strong> Store these shards in different secure locations. Any <span id="thresholdDisplay"></span> shares can recover the complete mnemonic.</div>
+          <div class="alert alert-info" data-i18n="securityTip">
+            <strong>Security Tip:</strong> Store these shards in different secure locations. Any <span id="thresholdDisplay"></span> shares can recover the complete mnemonic.
+          </div>
           <div id="sharesList"></div>
         </div>
 
@@ -118,7 +123,14 @@
             rows="8"
             wrap="soft"
             data-i18n-placeholder="recoverPlaceholder"
-            placeholder="Paste shard contents here, one shard per line...&#10;&#10;💡 Tip: Paste multiple shards at once, system will handle line breaks automatically&#10;&#10;Example format:&#10;eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjEsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5eiJ9&#10;eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjIsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5eiJ9&#10;eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjMsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5eiJ9"
+            placeholder="Paste shard contents here, one shard per line...
+
+💡 Tip: Paste multiple shards at once, system will handle line breaks automatically
+
+Example format:
+eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjEsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5eiJ9
+eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjIsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5eiJ9
+eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjMsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5eiJ9"
             oninput="validateShares()"
             onpaste="setTimeout(validateShares, 100)"
             spellcheck="false"

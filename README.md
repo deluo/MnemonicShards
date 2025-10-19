@@ -89,15 +89,19 @@ git clone <repository-url>
 cd MnemonicShards
 
 # Install dependencies
-npm install
+bun install
 
 # Start development server
-npm run dev
-# Visit http://localhost:5174
+bun run dev
+# Visit http://localhost:5173
 
 # Build production version
-npm run build
+bun run build
 # View dist/index.html
+
+# Preview production build
+bun run start
+# Visit http://localhost:8080
 ```
 
 ## 📱 Security Recommendations

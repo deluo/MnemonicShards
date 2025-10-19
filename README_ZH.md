@@ -89,15 +89,19 @@ git clone <repository-url>
 cd MnemonicShards
 
 # 安装依赖
-npm install
+bun install
 
 # 启动开发服务器
-npm run dev
-# 访问 http://localhost:5174
+bun run dev
+# 访问 http://localhost:5173
 
 # 构建生产版本
-npm run build
+bun run build
 # 查看 dist/index.html
+
+# 预览生产构建
+bun run start
+# 访问 http://localhost:8080
 ```
 
 ## 📱 安全建议

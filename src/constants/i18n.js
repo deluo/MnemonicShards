@@ -42,7 +42,14 @@ export const TRANSLATIONS = {
       4. Extra shards will be automatically ignored
     `,
     recoverBtn: 'Recover Mnemonic',
-    recoverPlaceholder: `Paste shard contents here, one shard per line...\\n\\n💡 Tip: Paste multiple shards at once, system will handle line breaks automatically\\n\\nExample format:\\neyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjEsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5eiJ9\\neyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjIsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5eiJ9\\neyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjMsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5eiJ9`,
+    recoverPlaceholder: `Paste shard contents here, one shard per line...
+
+💡 Tip: Paste multiple shards at once, system will handle line breaks automatically
+
+Example format:
+eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjEsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5eiJ9
+eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjIsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5eiJ9
+eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjMsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5eiJ9`,
     waitingForInput: 'Waiting for shard input...',
 
     // 结果区域
@@ -96,6 +103,7 @@ export const TRANSLATIONS = {
 
     // 单词标签
     wordLabel: (index) => `${index}. Word`,
+    wordPlaceholder: (index) => `Word ${index}`,
     position: 'Position',
 
     // 文件相关
@@ -151,7 +159,14 @@ export const TRANSLATIONS = {
       4. 多余的分片会被自动忽略
     `,
     recoverBtn: '恢复助记词',
-    recoverPlaceholder: `请在此处粘贴分片内容，每行一个分片...\\n\\n💡 提示：直接粘贴多个分片，系统会自动处理换行\\n\\n示例格式：\\neyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjEsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5eiJ9\\neyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjIsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5eiJ9\\neyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjMsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5eiJ9`,
+    recoverPlaceholder: `请在此处粘贴分片内容，每行一个分片...
+
+💡 提示：直接粘贴多个分片，系统会自动处理换行
+
+示例格式：
+eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjEsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5eiJ9
+eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjIsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5eiJ9
+eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjMsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5eiJ9`,
     waitingForInput: '等待输入分片...',
 
     // 结果区域
@@ -203,6 +218,7 @@ export const TRANSLATIONS = {
 
     // 单词标签
     wordLabel: (index) => `${index}. 单词`,
+    wordPlaceholder: (index) => `第 ${index} 个单词`,
     position: '位置',
 
     // 文件相关

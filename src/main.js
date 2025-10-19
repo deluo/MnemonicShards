@@ -147,6 +147,9 @@ class MnemonicSplitApp {
 
     // 更新placeholder属性
     this.updatePlaceholders();
+
+    // 更新助记词输入框的placeholder
+    this.updateWordInputPlaceholders();
   }
 
   /**
@@ -182,6 +185,18 @@ class MnemonicSplitApp {
       const placeholderKey = recoverInput.getAttribute('data-i18n-placeholder');
       if (placeholderKey) {
         recoverInput.placeholder = i18n.t(placeholderKey);
+      }
+    }
+  }
+
+  /**
+   * 更新助记词输入框的placeholder
+   */
+  updateWordInputPlaceholders() {
+    for (let i = 1; i <= this.currentWordCount; i++) {
+      const input = getElement(SELECTORS.WORD_INPUT(i));
+      if (input) {
+        input.placeholder = '';
       }
     }
   }
