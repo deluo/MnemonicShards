@@ -2,7 +2,7 @@
 
 English | [简体中文](./README_ZH.md)
 
-A secure, professional mnemonic phrase splitting tool that uses Shamir's Secret Sharing algorithm to split your mnemonic phrase into multiple shards. Any specified number of shards can recover the original mnemonic.
+A secure, professional mnemonic phrase splitting tool that uses Shamir's Secret Sharing algorithm to split your mnemonic phrase into multiple shards, with optional OpenPGP encryption for enhanced security. Any specified number of shards can recover the original mnemonic.
 
 ## 🔒 Security Features
 
@@ -21,6 +21,10 @@ A secure, professional mnemonic phrase splitting tool that uses Shamir's Secret 
 - ✅ Custom recovery threshold (2-5 shards)
 - ✅ One-click copy/download shards
 - ✅ Perfect mobile adaptation
+- ✅ OpenPGP symmetric encryption for shards
+- ✅ Password strength validation
+- ✅ Secure password generation
+- ✅ Encrypted shard storage support
 
 ## 🛠️ Technology Stack
 
@@ -30,6 +34,11 @@ A secure, professional mnemonic phrase splitting tool that uses Shamir's Secret 
   - Standard cryptographic algorithm, secure and reliable
   - Peer-reviewed cryptographic library
   - Supports flexible threshold configuration
+- **[openpgp](https://www.npmjs.com/package/openpgp)** - OpenPGP implementation for JavaScript
+  - Industry-standard OpenPGP cryptography
+  - AES-256 symmetric encryption
+  - GPG-compatible encrypted output
+  - Secure password-based encryption
 
 ### Development Tools
 
@@ -47,6 +56,7 @@ src/
 ├── utils/                   # Utility functions
 │   ├── dom.js              # DOM manipulation utilities (safe element retrieval and creation)
 │   ├── validation.js       # Validation utilities (BIP39 word validation)
+│   ├── encryption.js       # Encryption utilities (OpenPGP encryption/decryption, password validation)
 │   └── helpers.js          # General utilities (copy, download, encoding, etc.)
 ├── styles/
 │   └── styles.css          # Main stylesheet (modern design system, mobile support)
@@ -71,7 +81,34 @@ Root directory/
 - **Mobile-first** - Perfect mobile adaptation and touch optimization
 - **Framework-free** - Native JavaScript, lightweight and fast
 
+## 🔐 Encryption Features
+
+The tool provides optional OpenPGP encryption to enhance the security of your mnemonic shards:
+
+### Encryption Options
+
+- **Symmetric Encryption**: Uses AES-256 algorithm with password-based encryption
+- **GPG Compatibility**: Encrypted output is compatible with standard GPG tools
+- **Password Strength Validation**: Built-in password strength assessment
+- **Secure Password Generation**: Option to generate cryptographically secure passwords
+
+### Encryption Process
+
+1. **Password Creation**: Create a strong password or use the built-in generator
+2. **Shard Encryption**: Each shard is encrypted individually using OpenPGP
+3. **Secure Storage**: Encrypted shards can be safely stored even on less secure media
+4. **Decryption**: Original shards are recovered by decrypting with the same password
+
+### Password Security
+
+- **Minimum Requirements**: At least 8 characters with mixed case, numbers, and special characters
+- **Strength Levels**: Weak, Medium, and Strong indicators with improvement suggestions
+- **Secure Generation**: Cryptographically secure random password generation
+- **Memory Safety**: Passwords are not stored or cached after use
+
 ## 🎯 How to Use
+
+### Basic Usage (Without Encryption)
 
 1. Open the [application page](./index.html)
 2. Select mnemonic word count (12 or 24 words)
@@ -80,6 +117,17 @@ Root directory/
 5. Click "Generate Shares" to create multiple shards
 6. Save the shards in different secure locations
 7. When recovery is needed, input any specified number of shards
+
+### Encrypted Usage (Recommended)
+
+1. Open the [application page](./index.html)
+2. Select mnemonic word count (12 or 24 words)
+3. Configure total shards and recovery threshold
+4. Enter your mnemonic phrase, the system will automatically validate each word
+5. Enable encryption option and create a strong password
+6. Click "Generate & Encrypt Shares" to create encrypted shards
+7. Save the encrypted shards and password separately in different secure locations
+8. When recovery is needed, input the encrypted shards and password to decrypt and recover
 
 ### Local Development
 
@@ -111,6 +159,11 @@ bun run start
 3. **Secure Media** - Use encrypted USB drives or paper backups
 4. **Regular Verification** - Regularly test the recovery functionality of shards
 5. **Shard Protection** - Do not share shards with untrusted parties
+6. **Password Management** - Store encryption passwords separately from encrypted shards
+7. **Strong Passwords** - Use the built-in password generator or create passwords with high entropy
+8. **Password Separation** - Store passwords in a different location than the encrypted shards
+9. **Memorize Critical Passwords** - Consider memorizing encryption passwords for ultimate security
+10. **Password Backup** - Create secure backups of encryption passwords using different methods
 
 ## 🔧 Shard Configuration Examples
 
