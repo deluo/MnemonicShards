@@ -86,6 +86,17 @@ export const SELECTORS = {
   // 显示
   THRESHOLD_DISPLAY: '#thresholdDisplay',
 
+  // 加密相关
+  ENCRYPTION_SECTION: '#encryptionSection',
+  ENABLE_ENCRYPTION: '#enableEncryption',
+  ENCRYPTION_FIELDS: '#encryptionFields',
+  ENCRYPTION_PASSWORD: '#encryptionPassword',
+  CONFIRM_PASSWORD: '#confirmPassword',
+  PASSWORD_STRENGTH: '#passwordStrength',
+  PASSWORD_MATCH: '#passwordMatch',
+  RECOVERY_PASSWORD_SECTION: '#recoveryPasswordSection',
+  RECOVERY_PASSWORD: '#recoveryPassword',
+
   // 动态生成
   WORD_INPUT: (index) => `#word${index}`,
   SUGGESTIONS: (index) => `#suggestions${index}`,

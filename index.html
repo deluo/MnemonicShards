@@ -95,6 +95,49 @@
         <!-- 分片结果区域 -->
         <div id="sharesResult" style="display: none">
           <div class="section-title" data-i18n="sharesTitle">Generated Shares</div>
+
+          <!-- 加密选项区域 -->
+          <div class="encryption-section" id="encryptionSection">
+            <div class="section-subtitle" data-i18n="encryption.title">Encryption Options</div>
+            <div class="alert alert-info" data-i18n="encryption.encryptionDescription">
+              Add an extra layer of security by encrypting each shard with OpenPGP format, compatible with GPG tools
+            </div>
+
+            <div class="encryption-controls">
+              <div class="control-group">
+                <label class="checkbox-container">
+                  <input type="checkbox" id="enableEncryption" />
+                  <span class="checkmark"></span>
+                  <span data-i18n="encryption.enableEncryption">Enable Encryption</span>
+                </label>
+              </div>
+
+              <div id="encryptionFields" class="encryption-fields" style="display: none">
+                <div class="control-group">
+                  <label for="encryptionPassword" data-i18n="encryption.passwordLabel">Password</label>
+                  <input type="password" id="encryptionPassword" class="password-input" data-i18n-placeholder="encryption.passwordPlaceholder" placeholder="Enter encryption password" />
+                  <div class="password-strength" id="passwordStrength"></div>
+                </div>
+
+                <div class="control-group">
+                  <label for="confirmPassword" data-i18n="encryption.confirmPasswordLabel">Confirm Password</label>
+                  <input
+                    type="password"
+                    id="confirmPassword"
+                    class="password-input"
+                    data-i18n-placeholder="encryption.confirmPasswordPlaceholder"
+                    placeholder="Confirm encryption password"
+                  />
+                  <div class="password-match" id="passwordMatch"></div>
+                </div>
+
+                <div class="alert alert-warning" data-i18n="encryption.passwordTip">
+                  <strong>Important:</strong> Make sure to remember your password, as it will be required to recover the mnemonic
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="alert alert-info" data-i18n="securityTip">
             <strong>Security Tip:</strong> Store these shards in different secure locations. Any <span id="thresholdDisplay"></span> shares can recover the complete mnemonic.
           </div>
@@ -138,6 +181,17 @@ eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjMsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2
             autocorrect="off"
             autocapitalize="off"
           ></textarea>
+
+          <!-- 恢复时密码输入区域 -->
+          <div id="recoveryPasswordSection" class="encryption-fields" style="display: none; margin-bottom: var(--space-lg)">
+            <div class="control-group">
+              <label for="recoveryPassword" data-i18n="encryption.passwordLabel">Decryption Password</label>
+              <input type="password" id="recoveryPassword" class="password-input" data-i18n-placeholder="encryption.passwordPlaceholder" placeholder="Enter decryption password" />
+              <div class="alert alert-warning" data-i18n="encryption.securityNotice">
+                <strong>Security:</strong> If your shards were encrypted, enter the same password used during encryption.
+              </div>
+            </div>
+          </div>
 
           <button class="action-btn" id="recoverBtn" disabled data-i18n="recoverBtn">Recover Mnemonic</button>
 

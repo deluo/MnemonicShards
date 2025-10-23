@@ -30,6 +30,7 @@ class MnemonicSplitApp {
     this.setupLanguageSwitcher();
     this.updateThresholdOptions();
     this.setInitialState();
+    this.shareManager.initEncryptionListeners(); // 初始化加密监听器
     i18n.init();
   }
 

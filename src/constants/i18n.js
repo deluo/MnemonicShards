@@ -75,6 +75,7 @@ eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjMsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2
       checkShareFormat: 'Please check if the shard format is correct, ensure each line contains a complete shard',
       copyFailed: 'Failed to copy to clipboard',
       downloadFailed: 'Download failed, please try again',
+      encryptionFieldsMissing: 'Encryption fields are missing',
     },
 
     success: {
@@ -82,6 +83,7 @@ eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjMsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2
       mnemonicRecovered: 'Mnemonic recovered successfully!',
       copySuccess: 'Copied to clipboard!',
       shareDownloaded: (index) => `Share ${index} downloaded`,
+      encryptedShareDownloaded: (index) => `Encrypted share ${index} downloaded`,
       recoverySuccess: 'Recovery successful!',
     },
 
@@ -125,6 +127,34 @@ eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjMsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2
       tip1: 'Please keep this file in a secure location',
       tip2: 'Do not share the shard with untrusted people',
       tip3: 'Any specified number of shards can recover the original mnemonic',
+    },
+
+    // 加密相关
+    encryption: {
+      title: 'Encryption Options',
+      enableEncryption: 'Enable Encryption',
+      encryptionDescription: 'Add an extra layer of security by encrypting each shard with a password',
+      passwordLabel: 'Password',
+      confirmPasswordLabel: 'Confirm Password',
+      passwordPlaceholder: 'Enter encryption password',
+      confirmPasswordPlaceholder: 'Confirm encryption password',
+      passwordTip: 'Make sure to remember your password, as it will be required to recover the mnemonic',
+      weakPassword: 'Password is too weak, please use at least 8 characters with a mix of letters, numbers, and symbols',
+      passwordMismatch: 'Passwords do not match',
+      encryptingShares: 'Encrypting shares...',
+      encryptingShare: (index) => `Encrypting share ${index}...`,
+      encryptedSharesTitle: 'Generated Encrypted Shares',
+      encryptionSuccess: 'Shares encrypted successfully!',
+      encryptionFailed: 'Encryption failed: ',
+      decryptionFailed: 'Decryption failed: ',
+      invalidPassword: 'Invalid password, please check and try again',
+      encryptionInfo: 'Each shard will be encrypted with OpenPGP format, compatible with GPG tools. The same password will be required during recovery.',
+      securityNotice: 'Encrypted shards provide additional security if stored in potentially compromised locations.',
+      passwordRequired: 'Password is required for decryption',
+      decryptingShares: 'Decrypting shares...',
+      encryptedShareNotice: 'ENCRYPTED SHARE - This shard is encrypted with OpenPGP format and requires a password for recovery',
+      encryptedShareTip: 'This shard is encrypted with OpenPGP format (compatible with GPG). You will need the same password used during generation to recover the mnemonic.',
+      gpgCompatibility: 'This encrypted shard can be decrypted using GPG command: gpg --decrypt shard1.gpg',
     },
 
     // 语言切换
@@ -190,6 +220,7 @@ eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjMsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2
       checkShareFormat: '请检查分片格式是否正确，确保每行一个完整的分片',
       copyFailed: '复制到剪贴板失败',
       downloadFailed: '下载失败，请重试',
+      encryptionFieldsMissing: '加密字段缺失',
     },
 
     success: {
@@ -197,6 +228,7 @@ eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjMsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2
       mnemonicRecovered: '助记词恢复成功！',
       copySuccess: '已复制到剪贴板！',
       shareDownloaded: (index) => `分片 ${index} 已下载`,
+      encryptedShareDownloaded: (index) => `加密分片 ${index} 已下载`,
       recoverySuccess: '恢复成功！',
     },
 
@@ -240,6 +272,34 @@ eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjMsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2
       tip1: '请将此文件保存在安全的位置',
       tip2: '不要将分片分享给不信任的人',
       tip3: '任意指定数量的分片即可恢复原始助记词',
+    },
+
+    // 加密相关
+    encryption: {
+      title: '加密选项',
+      enableEncryption: '启用加密',
+      encryptionDescription: '通过密码对每个分片进行加密，增加额外的安全层',
+      passwordLabel: '密码',
+      confirmPasswordLabel: '确认密码',
+      passwordPlaceholder: '请输入加密密码',
+      confirmPasswordPlaceholder: '请确认加密密码',
+      passwordTip: '请务必记住您的密码，恢复助记词时将需要此密码',
+      weakPassword: '密码过于简单，请使用至少8个字符，包含字母、数字和符号的组合',
+      passwordMismatch: '两次输入的密码不匹配',
+      encryptingShares: '正在加密分片...',
+      encryptingShare: (index) => `正在加密分片 ${index}...`,
+      encryptedSharesTitle: '生成的加密分片',
+      encryptionSuccess: '分片加密成功！',
+      encryptionFailed: '加密失败：',
+      decryptionFailed: '解密失败：',
+      invalidPassword: '密码无效，请检查后重试',
+      encryptionInfo: '每个分片将使用OpenPGP格式加密，兼容GPG工具。恢复时将需要相同的密码。',
+      securityNotice: '加密分片在存储在可能存在风险的位置时提供额外的安全性。',
+      passwordRequired: '解密需要密码',
+      decryptingShares: '正在解密分片...',
+      encryptedShareNotice: '加密分片 - 此分片使用OpenPGP格式加密，恢复时需要密码',
+      encryptedShareTip: '此分片使用OpenPGP格式加密（兼容GPG）。恢复助记词时需要使用生成时相同的密码。',
+      gpgCompatibility: '此加密分片可使用GPG命令解密：gpg --decrypt 分片1.gpg',
     },
 
     // 语言切换

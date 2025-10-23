@@ -28,6 +28,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "openpgp": "^6.2.2",
     "shamir-secret-sharing": "^0.0.4"
   },
   "devDependencies": {
