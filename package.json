@@ -14,7 +14,8 @@
     "dev:npm": "npm run dev",
     "serve:npm": "npx http-server -p 8080",
     "build:npm": "npm run build",
-    "preview:npm": "npm run preview"
+    "preview:npm": "npm run preview",
+    "deploy": "gh-pages -d dist"
   },
   "keywords": [
     "mnemonic",
@@ -39,6 +40,7 @@
     "shamir-secret-sharing": "^0.0.4"
   },
   "devDependencies": {
+    "gh-pages": "^6.3.0",
     "http-server": "^14.1.1",
     "vite": "^7.1.7",
     "vite-plugin-singlefile": "^2.3.0"
