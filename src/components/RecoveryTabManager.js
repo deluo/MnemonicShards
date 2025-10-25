@@ -5,7 +5,7 @@
 
 import { getElement, createElement, toggleElement, toggleClass, setHTML, clearElement, addEvent } from '../utils/dom.js';
 import { validateShareCollection } from '../utils/validation.js';
-import { validatePasswordMatch, decryptWithPassword } from '../utils/encryption.js';
+import { validatePasswordMatch, decryptWithPassword, detectGpgFormat } from '../utils/encryption.js';
 import { t } from '../utils/i18n.js';
 import { passwordDialog } from './PasswordDialog.js';
 
@@ -246,6 +246,7 @@ export class RecoveryTabManager {
         shareData: null,
         isEncrypted: file.name.endsWith('.gpg'),
         decryptedContent: null,
+        contentFormat: 'text', // 'text' 或 'binary'
       };
 
       this.uploadedFiles.push(fileData);
@@ -254,10 +255,18 @@ export class RecoveryTabManager {
       const content = await this.readFileContent(file);
       fileData.content = content;
 
-      // 如果是加密文件，先不解析，等待解密
+      // 检测内容格式
       if (fileData.isEncrypted) {
+        fileData.contentFormat = (content instanceof ArrayBuffer) ? 'binary' : 'text';
         fileData.status = 'encrypted';
       } else {
+        // 非加密文件必须是文本格式
+        if (typeof content !== 'string') {
+          fileData.status = 'invalid';
+          return;
+        }
+        fileData.contentFormat = 'text';
+
         // 解析分片内容
         const shareData = this.parseShareContent(content);
         if (shareData && !shareData.encrypted) {
@@ -308,6 +317,16 @@ export class RecoveryTabManager {
         }
       } catch (error) {
         file.status = 'invalid';
+        // 提供更详细的错误信息
+        if (error.message.includes('密码错误')) {
+          // 密码错误，继续尝试其他文件
+        } else if (error.message.includes('格式无效')) {
+          // 格式错误，标记为无效但继续尝试其他文件
+          console.warn(`文件 ${file.name} 格式无效:`, error.message);
+        } else {
+          // 其他错误
+          console.warn(`文件 ${file.name} 解密失败:`, error.message);
+        }
       }
 
       // 每解密一个文件就更新UI和验证状态
@@ -317,7 +336,7 @@ export class RecoveryTabManager {
 
     // 如果重试仍然失败，显示错误信息
     if (!decryptionSuccess) {
-      this.showError(t('encryption.invalidPassword'));
+      this.showError(t('encryption.invalidPassword') || '密码错误或文件格式无效');
     }
   }
 
@@ -367,18 +386,100 @@ export class RecoveryTabManager {
   }
 
   /**
-   * 读取文件内容
+   * 读取文件内容（支持GPG文件的智能格式检测）
    * @param {File} file - 文件对象
-   * @returns {Promise<string>} 文件内容
+   * @returns {Promise<string|ArrayBuffer>} 文件内容
    */
-  readFileContent(file) {
+  async readFileContent(file) {
+    // 对于GPG文件，我们需要更谨慎的处理
+    if (file.name.endsWith('.gpg')) {
+      return this.readGpgFile(file);
+    } else {
+      // 非GPG文件，简单读取为文本
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.readAsText(file);
+      });
+    }
+  }
+
+  /**
+   * 读取GPG文件，智能检测格式
+   * @param {File} file - GPG文件对象
+   * @returns {Promise<string|ArrayBuffer>} 文件内容
+   */
+  async readGpgFile(file) {
+    // 首先尝试读取为ArrayBuffer（二进制格式）
+    try {
+      const binaryResult = await this.readAsArrayBuffer(file);
+      const format = detectGpgFormat(binaryResult);
+
+      // 如果检测到是二进制PGP格式，直接返回
+      if (format.type === 'binary-packet' || format.type === 'binary') {
+        return binaryResult;
+      }
+
+      // 如果包含ASCII装甲头部，转换为文本
+      if (format.type === 'ascii-armor') {
+        try {
+          const textContent = new TextDecoder('utf-8', { fatal: false }).decode(binaryResult);
+          return textContent;
+        } catch (decodeError) {
+          // 如果解码失败，返回二进制格式
+          return binaryResult;
+        }
+      }
+
+      // 如果不确定，也尝试读取为文本格式
+      const textResult = await this.readAsText(file);
+      const trimmed = textResult.trim();
+
+      // 如果包含PGP装甲标记，返回文本
+      if (trimmed.startsWith('-----BEGIN PGP MESSAGE-----')) {
+        return textResult;
+      }
+
+      // 如果文本很短或包含控制字符，很可能是二进制被误读
+      if (trimmed.length < 200 || /[\x00-\x08\x0E-\x1F\x7F]/.test(trimmed)) {
+        return binaryResult;
+      }
+
+      // 默认返回文本（假设是ASCII装甲格式）
+      return textResult;
+    } catch (error) {
+      // 如果二进制读取失败，回退到文本读取
+      console.warn('二进制读取失败，回退到文本模式:', error);
+      return this.readAsText(file);
+    }
+  }
+
+  /**
+   * 读取文件为ArrayBuffer
+   * @param {File} file - 文件对象
+   * @returns {Promise<ArrayBuffer>} ArrayBuffer数据
+   */
+  readAsArrayBuffer(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-
       reader.onload = (e) => resolve(e.target.result);
-      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.onerror = () => reject(new Error('Failed to read file as binary'));
+      reader.readAsArrayBuffer(file);
+    });
+  }
 
-      reader.readAsText(file);
+  /**
+   * 读取文件为文本
+   * @param {File} file - 文件对象
+   * @returns {Promise<string>} 文本数据
+   */
+  readAsText(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target.result);
+      reader.onerror = () => reject(new Error('Failed to read file as text'));
+      reader.readAsText(file, 'utf-8');
     });
   }
 

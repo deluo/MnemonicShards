@@ -45,36 +45,124 @@ export async function encryptWithPassword(plaintext, password) {
 }
 
 /**
- * 使用密码对加密文本进行解密
+ * 使用密码对加密内容进行解密
  *
- * @param {string} encryptedText - 需要解密的加密文本 (ASCII armored format)
+ * @param {string|ArrayBuffer} encryptedData - 需要解密的加密内容 (ASCII armored string 或 binary ArrayBuffer)
  * @param {string} password - 解密密码
  * @returns {Promise<string>} - 返回解密后的明文
  * @throws {Error} - 如果解密过程中出现错误或密码不正确
  */
-export async function decryptWithPassword(encryptedText, password) {
+export async function decryptWithPassword(encryptedData, password) {
   try {
-    if (!encryptedText || typeof encryptedText !== 'string') {
-      throw new Error('加密文本必须是非空字符串');
+    if (!encryptedData) {
+      throw new Error('加密数据不能为空');
     }
 
     if (!password || typeof password !== 'string') {
       throw new Error('密码必须是非空字符串');
     }
 
-    // 使用 OpenPGP 进行对称解密
-    const message = await openpgp.readMessage({ armoredMessage: encryptedText });
-    const { data: decrypted } = await openpgp.decrypt({
-      message,
-      passwords: [password],
-    });
+    let message;
+    let decryptedSuccess = false;
+    const errors = [];
 
-    return decrypted;
-  } catch (error) {
-    // 特殊处理密码错误的情况
-    if (error.message.includes('Incorrect password') || error.message.includes('Session key decryption failed')) {
-      throw new Error('密码错误，无法解密');
+    // 尝试多种解密方式以确保兼容性
+    const tryDecrypt = async (method, data, description) => {
+      try {
+        if (method === 'armored') {
+          message = await openpgp.readMessage({ armoredMessage: data });
+        } else if (method === 'binary') {
+          message = await openpgp.readMessage({ binaryMessage: data });
+        }
+
+        const { data: decrypted } = await openpgp.decrypt({
+          message,
+          passwords: [password],
+        });
+
+        decryptedSuccess = true;
+        return decrypted;
+      } catch (error) {
+        errors.push(`${description}: ${error.message}`);
+        return null;
+      }
+    };
+
+    // 如果是字符串格式
+    if (typeof encryptedData === 'string') {
+      // 尝试直接作为ASCII装甲格式
+      const result1 = await tryDecrypt('armored', encryptedData, '字符串-ASCII装甲');
+      if (result1) return result1;
+
+      // 如果ASCII装甲失败，尝试转换为二进制再解密
+      const encoder = new TextEncoder();
+      const binaryData = encoder.encode(encryptedData);
+      const result2 = await tryDecrypt('binary', binaryData, '字符串-转二进制');
+      if (result2) return result2;
+
+    } else if (encryptedData instanceof ArrayBuffer) {
+      const uint8Data = new Uint8Array(encryptedData);
+
+      // 尝试直接作为二进制格式
+      const result1 = await tryDecrypt('binary', uint8Data, 'ArrayBuffer-二进制');
+      if (result1) return result1;
+
+      // 如果二进制失败，尝试转换为文本作为ASCII装甲格式
+      try {
+        const textDecoder = new TextDecoder('utf-8', { fatal: false });
+        const textContent = textDecoder.decode(encryptedData);
+        if (textContent.includes('-----BEGIN PGP MESSAGE-----')) {
+          const result2 = await tryDecrypt('armored', textContent, 'ArrayBuffer-转ASCII装甲');
+          if (result2) return result2;
+        }
+      } catch (textError) {
+        // 忽略文本解码错误
+      }
+    } else {
+      throw new Error('不支持的加密数据格式');
     }
+
+    // 如果所有方法都失败了，分析错误原因
+    if (!decryptedSuccess) {
+      // 检查是否是密码错误
+      const passwordError = errors.some(err =>
+        err.includes('Incorrect password') ||
+        err.includes('Session key decryption failed') ||
+        err.includes('Invalid session key')
+      );
+
+      if (passwordError) {
+        throw new Error('密码错误，无法解密');
+      }
+
+      // 检查是否是格式错误
+      const formatError = errors.some(err =>
+        err.includes('not a valid') ||
+        err.includes('Invalid') ||
+        err.includes('ASCII armor') ||
+        err.includes('No data')
+      );
+
+      if (formatError) {
+        console.warn('解密尝试失败详情:', errors);
+        throw new Error('GPG文件格式可能不兼容，请确认文件是通过标准的GPG工具或本工具生成的');
+      }
+
+      // 其他未知错误
+      throw new Error(`解密失败: ${errors[0] || '未知错误'}`);
+    }
+
+    // 这里不应该到达，但为了类型安全
+    throw new Error('解密过程中发生未知错误');
+  } catch (error) {
+    // 如果是我们自己抛出的错误，直接传递
+    if (error.message.includes('密码错误') ||
+        error.message.includes('格式') ||
+        error.message.includes('不支持的加密数据格式')) {
+      throw error;
+    }
+
+    // 其他未知错误
     throw new Error(`解密失败: ${error.message}`);
   }
 }
@@ -195,6 +283,75 @@ export function generateRandomPassword(length = 16, options = {}) {
   }
 
   return password;
+}
+
+/**
+ * 检测GPG文件格式类型
+ *
+ * @param {string|ArrayBuffer|Uint8Array} data - 文件数据
+ * @returns {Object} - 返回检测结果对象，包含 type (格式类型) 和 isBinary (是否为二进制)
+ */
+export function detectGpgFormat(data) {
+  try {
+    if (!data) {
+      return { type: 'unknown', isBinary: false };
+    }
+
+    // 如果是字符串，检查是否包含PGP装甲标记
+    if (typeof data === 'string') {
+      const trimmed = data.trim();
+      if (trimmed.startsWith('-----BEGIN PGP MESSAGE-----')) {
+        return { type: 'ascii-armor', isBinary: false };
+      }
+      // 可能是二进制数据被错误地当作字符串读取
+      return { type: 'unknown-text', isBinary: false };
+    }
+
+    // 如果是ArrayBuffer或Uint8Array，检查是否为二进制PGP格式
+    let uint8Data;
+    if (data instanceof ArrayBuffer) {
+      uint8Data = new Uint8Array(data);
+    } else if (data instanceof Uint8Array) {
+      uint8Data = data;
+    } else {
+      return { type: 'unknown', isBinary: false };
+    }
+
+    // 检查是否为ASCII装甲格式的字节
+    const header = '-----BEGIN PGP MESSAGE-----';
+    const headerBytes = new TextEncoder().encode(header);
+
+    // 检查开头是否匹配ASCII装甲头部
+    if (uint8Data.length >= headerBytes.length) {
+      let isArmor = true;
+      for (let i = 0; i < headerBytes.length; i++) {
+        if (uint8Data[i] !== headerBytes[i]) {
+          isArmor = false;
+          break;
+        }
+      }
+      if (isArmor) {
+        return { type: 'ascii-armor', isBinary: false };
+      }
+    }
+
+    // 检查是否包含二进制PGP标记
+    // PGP二进制包通常以特定的字节序列开头
+    if (uint8Data.length >= 2) {
+      // 检查常见的PGP数据包标签
+      const packetTag = uint8Data[0];
+      // PGP数据包的bit 7-6是版本号，bit 5-0是包类型
+      if ((packetTag & 0x80) === 0x80) {
+        // 这看起来像一个PGP数据包
+        return { type: 'binary-packet', isBinary: true };
+      }
+    }
+
+    // 如果都不是，可能是其他二进制格式
+    return { type: 'binary', isBinary: true };
+  } catch (error) {
+    return { type: 'unknown', isBinary: false };
+  }
 }
 
 /**
