@@ -75,6 +75,8 @@ export const SELECTORS = {
   SHARES_RESULT: '#sharesResult',
   SHARES_LIST: '#sharesList',
   RECOVER_RESULT: '#recoverResult',
+  PASTE_RECOVER_RESULT: '#pasteRecoverResult',
+  UPLOAD_RECOVER_RESULT: '#uploadRecoverResult',
 
   // 提示区域
   INPUT_ERROR_ALERT: '#inputErrorAlert',

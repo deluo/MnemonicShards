@@ -22,9 +22,12 @@ A secure, professional mnemonic phrase splitting tool that uses Shamir's Secret 
 - ✅ One-click copy/download shards
 - ✅ Perfect mobile adaptation
 - ✅ OpenPGP symmetric encryption for shards
-- ✅ Password strength validation
 - ✅ Secure password generation
 - ✅ Encrypted shard storage support
+- ✅ File upload recovery (support .txt and .gpg files)
+- ✅ Tab-based recovery interface (paste/upload tabs)
+- ✅ Skip decryption option for mixed file types
+- ✅ Enhanced mnemonic recovery display
 
 ## 🛠️ Technology Stack
 
@@ -52,7 +55,9 @@ A secure, professional mnemonic phrase splitting tool that uses Shamir's Secret 
 src/
 ├── components/              # Core components
 │   ├── MnemonicInput.js     # Mnemonic input component (supports auto-complete, validation, duplicate detection)
-│   └── ShareManager.js      # Shard management component (handles shard generation and recovery)
+│   ├── ShareManager.js      # Shard management component (handles shard generation and recovery)
+│   ├── RecoveryTabManager.js # Recovery tab manager (handles paste/upload tabs and file processing)
+│   └── PasswordDialog.js    # Password dialog component (handles password input for encryption/decryption)
 ├── utils/                   # Utility functions
 │   ├── dom.js              # DOM manipulation utilities (safe element retrieval and creation)
 │   ├── validation.js       # Validation utilities (BIP39 word validation)
@@ -128,6 +133,22 @@ The tool provides optional OpenPGP encryption to enhance the security of your mn
 6. Click "Generate & Encrypt Shares" to create encrypted shards
 7. Save the encrypted shards and password separately in different secure locations
 8. When recovery is needed, input the encrypted shards and password to decrypt and recover
+
+### File Upload Recovery
+
+1. Open the [application page](./index.html)
+2. Navigate to the "Recovery Mnemonic" section
+3. Choose the "Upload" tab
+4. Upload your shard files (.txt or .gpg format)
+5. If you have encrypted files (.gpg), enter the decryption password when prompted
+6. Click "Recover Mnemonic" to restore your original mnemonic phrase
+7. The recovered mnemonic will be displayed with clear word separation
+
+### Mixed Recovery Methods
+
+- **Paste Method**: Directly paste shard content into the input fields
+- **Upload Method**: Upload shard files for batch processing
+- **Skip Decryption**: When mixed files are uploaded, you can skip decryption for unencrypted files
 
 ### Local Development
 

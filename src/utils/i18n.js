@@ -57,7 +57,6 @@ export class I18nManager {
    */
   setLanguage(language) {
     if (!Object.values(LANGUAGES).includes(language)) {
-      console.warn(`Unsupported language: ${language}`);
       return;
     }
 
@@ -133,7 +132,7 @@ export class I18nManager {
       try {
         listener(this.currentLanguage);
       } catch (error) {
-        console.error('Error in i18n listener:', error);
+        // Silently handle listener errors
       }
     });
   }

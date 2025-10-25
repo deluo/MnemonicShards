@@ -52,6 +52,34 @@ eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjIsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2
 eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjMsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5eiJ9`,
     waitingForInput: 'Waiting for shard input...',
 
+    // Tab相关
+    pasteInputTab: 'Paste Input',
+    fileUploadTab: 'File Upload',
+    uploadInstructions: `
+      <strong>Instructions:</strong><br />
+      1. Drag and drop shard files here or click to select files<br />
+      2. Supported formats: .txt (standard shares) and .gpg (encrypted shares)<br />
+      3. You can select multiple files at once<br />
+      4. Files will be processed immediately after upload
+    `,
+    dragDropHint: 'Drag and drop files here or click to select',
+    selectFiles: 'Select Files',
+    supportedFormats: 'Supported formats: .txt, .gpg',
+    uploadedFiles: 'Uploaded Files',
+    clearAllFiles: 'Clear All',
+    waitingForUpload: 'Waiting for file upload...',
+    encryptionConfirmation: 'Enable Decryption?',
+    uploadConfirmationMessage: 'Do you want to enable decryption for uploaded files? If you have encrypted files (.gpg), you need to enable decryption to process them.',
+    confirmEncryption: 'Yes, enable decryption',
+    skipEncryption: 'No, skip decryption',
+    encryptionRequired: 'Decryption is required for encrypted files',
+    insufficientSharesAfterDecryption: (required, provided) => `Insufficient shares after decryption. Need at least ${required} shares, but got ${provided}.`,
+    sharesDecrypted: (valid, threshold) => `Successfully decrypted ${valid} shares (need ${threshold})`,
+    encryptionPasswordTitle: 'Decryption Password',
+    encryptionPasswordDesc: 'Enter password to decrypt your encrypted files (.gpg). All encrypted files will use the same password.',
+    applyDecryption: 'Apply Decryption',
+    skipDecryption: 'Skip Decryption',
+
     // 结果区域
     sharesTitle: 'Generated Shares',
     securityTip: `<strong>Security Tip:</strong> Store these shards in different secure locations. Any <span id="thresholdDisplay"></span> shares can recover the complete mnemonic.`,
@@ -76,6 +104,9 @@ eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjMsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2
       copyFailed: 'Failed to copy to clipboard',
       downloadFailed: 'Download failed, please try again',
       encryptionFieldsMissing: 'Encryption fields are missing',
+      fileTypeNotSupported: 'File type not supported: {0}',
+      fileTooLarge: 'File too large: {0}',
+      duplicateFile: 'Duplicate file: {0}',
     },
 
     success: {
@@ -96,6 +127,15 @@ eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjMsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2
     info: {
       recovering: 'Recovering...',
       validShares: (valid, threshold) => `Detected ${valid} valid shares (need ${threshold}), recovery can start`,
+    },
+
+    // 文件状态
+    fileStatus: {
+      processing: 'Processing...',
+      valid: 'Valid share',
+      invalid: 'Invalid format',
+      encrypted: 'Encrypted - awaiting decryption',
+      unknown: 'Unknown status',
     },
 
     // 按钮操作
@@ -155,6 +195,18 @@ eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjMsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2
       encryptedShareNotice: 'ENCRYPTED SHARE - This shard is encrypted with OpenPGP format and requires a password for recovery',
       encryptedShareTip: 'This shard is encrypted with OpenPGP format (compatible with GPG). You will need the same password used during generation to recover the mnemonic.',
       gpgCompatibility: 'This encrypted shard can be decrypted using GPG command: gpg --decrypt shard1.gpg',
+      encryptedFileDetected: 'Encrypted files detected. Password is required for decryption.',
+      noEncryptedFiles: 'No encrypted files to decrypt',
+    },
+
+    // 密码对话框
+    passwordDialog: {
+      title: 'Enter Decryption Password',
+      retryTitle: 'Incorrect Password',
+      message: 'Please enter the password to decrypt the shares.',
+      retryMessage: 'The password you entered is incorrect. Please try again.',
+      confirm: 'Confirm',
+      cancel: 'Cancel',
     },
 
     // 语言切换
@@ -199,6 +251,34 @@ eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjIsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2
 eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjMsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5eiJ9`,
     waitingForInput: '等待输入分片...',
 
+    // Tab相关
+    pasteInputTab: '粘贴输入',
+    fileUploadTab: '文件上传',
+    uploadInstructions: `
+      <strong>使用说明：</strong><br />
+      1. 拖拽分片文件到此处或点击选择文件<br />
+      2. 支持格式：.txt（标准分片）和 .gpg（加密分片）<br />
+      3. 可以一次选择多个文件<br />
+      4. 文件上传后会立即处理
+    `,
+    dragDropHint: '拖拽文件到此处或点击选择',
+    selectFiles: '选择文件',
+    supportedFormats: '支持格式：.txt, .gpg',
+    uploadedFiles: '已上传文件',
+    clearAllFiles: '清空全部',
+    waitingForUpload: '等待文件上传...',
+    encryptionConfirmation: '启用解密？',
+    uploadConfirmationMessage: '是否为上传的文件启用解密？如果您有加密文件(.gpg)，需要启用解密才能处理它们。',
+    confirmEncryption: '是，启用解密',
+    skipEncryption: '否，跳过解密',
+    encryptionRequired: '加密文件需要解密',
+    insufficientSharesAfterDecryption: (required, provided) => `解密后分片数量不足。至少需要 ${required} 个分片，但只有 ${provided} 个。`,
+    sharesDecrypted: (valid, threshold) => `成功解密 ${valid} 个分片（需要 ${threshold} 个）`,
+    encryptionPasswordTitle: '解密密码',
+    encryptionPasswordDesc: '请输入密码以解密您的加密文件(.gpg)。所有加密文件将使用相同的密码。',
+    applyDecryption: '应用解密',
+    skipDecryption: '跳过解密',
+
     // 结果区域
     sharesTitle: '生成的分片',
     securityTip: `<strong>安全提示：</strong> 请将这些分片分别保存在不同的安全位置。任意 <span id="thresholdDisplay"></span> 个分片即可恢复完整的助记词。`,
@@ -221,6 +301,9 @@ eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjMsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2
       copyFailed: '复制到剪贴板失败',
       downloadFailed: '下载失败，请重试',
       encryptionFieldsMissing: '加密字段缺失',
+      fileTypeNotSupported: '不支持的文件类型：{0}',
+      fileTooLarge: '文件过大：{0}',
+      duplicateFile: '重复文件：{0}',
     },
 
     success: {
@@ -241,6 +324,15 @@ eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjMsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2
     info: {
       recovering: '正在恢复...',
       validShares: (valid, threshold) => `检测到 ${valid} 个有效分片（需要 ${threshold} 个），可以开始恢复`,
+    },
+
+    // 文件状态
+    fileStatus: {
+      processing: '处理中...',
+      valid: '有效分片',
+      invalid: '格式无效',
+      encrypted: '加密文件 - 等待解密',
+      unknown: '未知状态',
     },
 
     // 按钮操作
@@ -300,6 +392,18 @@ eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjMsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2
       encryptedShareNotice: '加密分片 - 此分片使用OpenPGP格式加密，恢复时需要密码',
       encryptedShareTip: '此分片使用OpenPGP格式加密（兼容GPG）。恢复助记词时需要使用生成时相同的密码。',
       gpgCompatibility: '此加密分片可使用GPG命令解密：gpg --decrypt 分片1.gpg',
+      encryptedFileDetected: '检测到加密文件，需要输入密码进行解密',
+      noEncryptedFiles: '没有需要解密的文件',
+    },
+
+    // 密码对话框
+    passwordDialog: {
+      title: '输入解密密码',
+      retryTitle: '密码错误',
+      message: '请输入密码以解密分片。',
+      retryMessage: '您输入的密码不正确，请重试。',
+      confirm: '确认',
+      cancel: '取消',
     },
 
     // 语言切换

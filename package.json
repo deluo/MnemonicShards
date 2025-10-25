@@ -1,7 +1,7 @@
 {
   "name": "mnemonic-shards",
   "version": "1.0.0",
-  "description": "Memonic seed phrase splitting tool using Shamir Secret Sharing",
+  "description": "Professional mnemonic seed phrase splitting tool using Shamir Secret Sharing with file upload recovery, tab-based interface, and OpenPGP encryption support",
   "main": "index.js",
   "type": "module",
   "scripts": {
@@ -23,7 +23,14 @@
     "secret-sharing",
     "cryptography",
     "backup",
-    "wallet"
+    "wallet",
+    "file-upload",
+    "recovery",
+    "tab-interface",
+    "encryption",
+    "openpgp",
+    "offline",
+    "client-side"
   ],
   "author": "",
   "license": "ISC",

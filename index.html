@@ -148,25 +148,35 @@
         <div class="section recover-section">
           <div class="section-title" data-i18n="recoverTitle">Recover Mnemonic Phrase</div>
 
-          <div class="alert alert-info" data-i18n="recoverInstructions">
-            <strong>Instructions:</strong><br />
-            1. Paste each shard into the text box below, one shard per line<br />
-            2. Shard format should be complete Base64 encoded string<br />
-            3. Minimum number of shards must be reached for recovery<br />
-            4. Extra shards will be automatically ignored
+          <!-- Tab切换按钮 -->
+          <div class="recovery-tabs">
+            <button class="tab-btn active" id="pasteTabBtn" data-tab="paste" data-i18n="pasteInputTab">Paste Input</button>
+            <button class="tab-btn" id="uploadTabBtn" data-tab="upload" data-i18n="fileUploadTab">File Upload</button>
           </div>
 
-          <div class="input-status" id="inputStatus">
-            <span class="status-text" data-i18n="waitingForInput">Waiting for shard input...</span>
-          </div>
+          <!-- Tab内容区域 -->
+          <div class="tab-content">
+            <!-- 粘贴输入Tab -->
+            <div class="tab-pane active" id="pasteTab">
+              <div class="alert alert-info" data-i18n="recoverInstructions">
+                <strong>Instructions:</strong><br />
+                1. Paste each shard into the text box below, one shard per line<br />
+                2. Shard format should be complete Base64 encoded string<br />
+                3. Minimum number of shards must be reached for recovery<br />
+                4. Extra shards will be automatically ignored
+              </div>
 
-          <textarea
-            class="recover-input"
-            id="recoverInput"
-            rows="8"
-            wrap="soft"
-            data-i18n-placeholder="recoverPlaceholder"
-            placeholder="Paste shard contents here, one shard per line...
+              <div class="input-status" id="inputStatus">
+                <span class="status-text" data-i18n="waitingForInput">Waiting for shard input...</span>
+              </div>
+
+              <textarea
+                class="recover-input"
+                id="recoverInput"
+                rows="8"
+                wrap="soft"
+                data-i18n-placeholder="recoverPlaceholder"
+                placeholder="Paste shard contents here, one shard per line...
 
 💡 Tip: Paste multiple shards at once, system will handle line breaks automatically
 
@@ -174,22 +184,89 @@ Example format:
 eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjEsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5eiJ9
 eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjIsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5eiJ9
 eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjMsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5eiJ9"
-            oninput="validateShares()"
-            onpaste="setTimeout(validateShares, 100)"
-            spellcheck="false"
-            autocomplete="off"
-            autocorrect="off"
-            autocapitalize="off"
-          ></textarea>
+                oninput="validateShares()"
+                onpaste="setTimeout(validateShares, 100)"
+                spellcheck="false"
+                autocomplete="off"
+                autocorrect="off"
+                autocapitalize="off"
+              ></textarea>
 
-          <!-- 恢复时密码输入区域 -->
-          <div id="recoveryPasswordSection" class="encryption-fields" style="display: none; margin-bottom: var(--space-lg)">
-            <div class="control-group">
-              <label for="recoveryPassword" data-i18n="encryption.passwordLabel">Decryption Password</label>
-              <input type="password" id="recoveryPassword" class="password-input" data-i18n-placeholder="encryption.passwordPlaceholder" placeholder="Enter decryption password" />
-              <div class="alert alert-warning" data-i18n="encryption.securityNotice">
-                <strong>Security:</strong> If your shards were encrypted, enter the same password used during encryption.
+              <!-- 粘贴输入恢复结果区域 -->
+              <div id="pasteRecoverResult" class="recover-result-section"></div>
+            </div>
+
+            <!-- 文件上传Tab -->
+            <div class="tab-pane" id="uploadTab">
+              <div class="alert alert-info" data-i18n="uploadInstructions">
+                <strong>Instructions:</strong><br />
+                1. Drag and drop shard files here or click to select files<br />
+                2. Supported formats: .txt (standard shares) and .gpg (encrypted shares)<br />
+                3. You can select multiple files at once<br />
+                4. Files will be processed immediately after upload
               </div>
+
+              <!-- 拖拽上传区域 -->
+              <div class="upload-area" id="uploadArea">
+                <div class="upload-content">
+                  <div class="upload-icon">📁</div>
+                  <div class="upload-text">
+                    <p data-i18n="dragDropHint">Drag and drop files here or click to select</p>
+                    <p class="upload-hint" data-i18n="supportedFormats">Supported formats: .txt, .gpg</p>
+                  </div>
+                  <button class="upload-btn" id="selectFilesBtn" data-i18n="selectFiles">Select Files</button>
+                  <input type="file" id="fileInput" multiple accept=".txt,.gpg" style="display: none" />
+                </div>
+              </div>
+
+              <!-- 加密文件密码输入区域 -->
+              <div class="encryption-password-section" id="encryptionPasswordSection" style="display: none">
+                <div class="encryption-password-header">
+                  <h4 data-i18n="encryptionPasswordTitle">Decryption Password</h4>
+                  <p class="encryption-password-desc" data-i18n="encryptionPasswordDesc">
+                    Enter the password to decrypt your encrypted files (.gpg). All encrypted files will use the same password.
+                  </p>
+                </div>
+
+                <div class="encryption-password-input-group">
+                  <label for="uploadEncryptionPassword" data-i18n="encryption.passwordLabel">Password</label>
+                  <div class="password-input-wrapper">
+                    <input
+                      type="password"
+                      id="uploadEncryptionPassword"
+                      class="password-input"
+                      data-i18n-placeholder="encryption.passwordPlaceholder"
+                      placeholder="Enter decryption password"
+                      autocomplete="new-password"
+                    />
+                    <button type="button" class="password-toggle-btn" id="uploadPasswordToggleBtn" title="Toggle password visibility">
+                      <span class="password-toggle-icon">Show</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="encryption-password-actions">
+                  <button class="btn btn-secondary" id="skipDecryptionBtn" data-i18n="skipDecryption">Skip Decryption</button>
+                  <button class="btn btn-primary" id="applyDecryptionBtn" data-i18n="applyDecryption">Apply Decryption</button>
+                </div>
+              </div>
+
+              <!-- 已上传文件列表 -->
+              <div class="uploaded-files" id="uploadedFiles" style="display: none">
+                <div class="files-header">
+                  <h4 data-i18n="uploadedFiles">Uploaded Files</h4>
+                  <button class="clear-files-btn" id="clearFilesBtn" data-i18n="clearAllFiles">Clear All</button>
+                </div>
+                <div class="files-list" id="filesList"></div>
+              </div>
+
+              <!-- 上传状态 -->
+              <div class="upload-status" id="uploadStatus">
+                <span class="status-text" data-i18n="waitingForUpload">Waiting for file upload...</span>
+              </div>
+
+              <!-- 文件上传恢复结果区域 -->
+              <div id="uploadRecoverResult" class="recover-result-section"></div>
             </div>
           </div>
 

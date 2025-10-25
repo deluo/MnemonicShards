@@ -93,7 +93,7 @@ export function validateMnemonic(words) {
 
 /**
  * 验证分片集合
- * @param {string[]} shareStrings - 分片字符串数组
+ * @param {string[]|Object[]} shareStrings - 分片字符串数组或分片对象数组
  * @returns {Object} 验证结果 { isValid: boolean, validCount: number, threshold: number, errors: string[] }
  */
 export function validateShareCollection(shareStrings) {
@@ -105,9 +105,17 @@ export function validateShareCollection(shareStrings) {
   const validShareData = [];
 
   shareStrings.forEach((shareStr, index) => {
-    const shareData = parseShareData(shareStr);
+    let shareData = null;
 
-    if (shareData) {
+    // 如果已经是对象，直接使用
+    if (typeof shareStr === 'object' && shareStr !== null) {
+      shareData = shareStr;
+    } else {
+      // 否则尝试解析字符串
+      shareData = parseShareData(shareStr);
+    }
+
+    if (shareData && shareData.threshold && shareData.index !== undefined && shareData.data) {
       validCount++;
       validShareData.push(shareData);
       // 收集所有可能的阈值

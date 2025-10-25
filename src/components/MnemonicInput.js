@@ -185,7 +185,7 @@ export class MnemonicInput {
   showInvalidWordError(index) {
     const errorAlert = getElement(SELECTORS.INPUT_ERROR_ALERT);
     if (errorAlert) {
-      errorAlert.innerHTML = t('errors.invalidWordCleared', index);
+      errorAlert.textContent = t('errors.invalidWordCleared', index);
       toggleElement(errorAlert, true);
 
       setTimeout(() => {
@@ -445,14 +445,32 @@ export class MnemonicInput {
     const duplicateAlert = getElement(SELECTORS.DUPLICATE_ALERT);
     if (!duplicateAlert) return;
 
+    // 清空之前的内容
+    duplicateAlert.innerHTML = '';
+
     if (duplicates.size > 0) {
-      let duplicateDetails = '';
+      // 创建安全的DOM结构，防止XSS攻击
+      const strongTitle = document.createElement('strong');
+      strongTitle.textContent = t('warnings.duplicateWordsDetected');
+      duplicateAlert.appendChild(strongTitle);
+
+      duplicateAlert.appendChild(document.createElement('br'));
+
       for (const [word, positions] of duplicatePositions) {
-        if (duplicateDetails) duplicateDetails += '<br>';
-        duplicateDetails += `<strong>${word}</strong>: ${t('position')} ${positions.join(', ')}`;
+        const strongWord = document.createElement('strong');
+        strongWord.textContent = word;
+        duplicateAlert.appendChild(strongWord);
+
+        const positionText = document.createTextNode(`: ${t('position')} ${positions.join(', ')}`);
+        duplicateAlert.appendChild(positionText);
+
+        duplicateAlert.appendChild(document.createElement('br'));
       }
 
-      duplicateAlert.innerHTML = `<strong>${t('warnings.duplicateWordsDetected')}</strong><br>${duplicateDetails}<br><small>${t('warnings.uniqueWordsNote')}</small>`;
+      const smallNote = document.createElement('small');
+      smallNote.textContent = t('warnings.uniqueWordsNote');
+      duplicateAlert.appendChild(smallNote);
+
       toggleElement(duplicateAlert, true);
     } else {
       toggleElement(duplicateAlert, false);

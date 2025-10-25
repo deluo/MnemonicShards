@@ -5,6 +5,7 @@
 
 import { MnemonicInput } from './components/MnemonicInput.js';
 import { ShareManager } from './components/ShareManager.js';
+import { RecoveryTabManager } from './components/RecoveryTabManager.js';
 import { getElement, addEvent, toggleElement, toggleClass } from './utils/dom.js';
 import { APP_CONFIG, MNEMONIC_CONFIG, SELECTORS, CSS_CLASSES } from './constants/index.js';
 import { i18n } from './utils/i18n.js';
@@ -17,6 +18,7 @@ class MnemonicSplitApp {
   constructor() {
     this.mnemonicInput = new MnemonicInput(MNEMONIC_CONFIG.DEFAULT_WORD_COUNT);
     this.shareManager = new ShareManager();
+    this.recoveryTabManager = new RecoveryTabManager();
     this.currentWordCount = MNEMONIC_CONFIG.DEFAULT_WORD_COUNT;
 
     this.init();
@@ -30,7 +32,7 @@ class MnemonicSplitApp {
     this.setupLanguageSwitcher();
     this.updateThresholdOptions();
     this.setInitialState();
-    this.shareManager.initEncryptionListeners(); // 初始化加密监听器
+    this.shareManager.initEncryptionListeners(); // 初始化加密监听器（现在是空方法）
     i18n.init();
   }
 
@@ -61,20 +63,8 @@ class MnemonicSplitApp {
       addEvent(generateBtn, 'click', () => this.handleGenerateShares());
     }
 
-    // 恢复功能
-    const recoverInput = getElement(SELECTORS.RECOVER_INPUT);
+    // 恢复功能 - 现在由RecoveryTabManager处理
     const recoverBtn = getElement(SELECTORS.RECOVER_BTN);
-
-    if (recoverInput) {
-      addEvent(recoverInput, 'input', () => {
-        this.shareManager.validateShareInput();
-      });
-      addEvent(recoverInput, 'paste', () => {
-        setTimeout(() => {
-          this.shareManager.validateShareInput();
-        }, 100);
-      });
-    }
 
     if (recoverBtn) {
       addEvent(recoverBtn, 'click', (e) => {
@@ -298,9 +288,38 @@ class MnemonicSplitApp {
    * 处理恢复助记词
    */
   async handleRecoverMnemonic() {
-    const success = await this.shareManager.recoverMnemonic();
-    if (success) {
-      this.scrollToResult();
+    try {
+      // 获取当前分片数据
+      const shares = this.recoveryTabManager.getCurrentShares();
+      const encryptionPassword = this.recoveryTabManager.getEncryptionPassword();
+
+      if (shares.length === 0) {
+        this.shareManager.showError(i18n.t('errors.noValidShares'));
+        return;
+      }
+
+      // 显示处理状态
+      const recoverBtn = getElement(SELECTORS.RECOVER_BTN);
+      if (recoverBtn) {
+        recoverBtn.disabled = true;
+        recoverBtn.textContent = i18n.t('info.recovering');
+      }
+
+      // 调用ShareManager的恢复方法，但传入自定义数据
+      const success = await this.shareManager.recoverMnemonicWithShares(shares, encryptionPassword);
+
+      if (success) {
+        this.scrollToResult();
+      }
+    } catch (error) {
+      this.shareManager.showError(i18n.t('errors.recoveryFailed') + error.message);
+    } finally {
+      // 恢复按钮状态
+      const recoverBtn = getElement(SELECTORS.RECOVER_BTN);
+      if (recoverBtn) {
+        recoverBtn.disabled = false;
+        recoverBtn.textContent = i18n.t('recoverBtn');
+      }
     }
   }
 
@@ -371,6 +390,9 @@ class MnemonicSplitApp {
   destroy() {
     this.mnemonicInput.destroy();
     this.shareManager.destroy();
+    if (this.recoveryTabManager) {
+      this.recoveryTabManager.destroy();
+    }
   }
 }
 
@@ -424,8 +446,8 @@ function bindGlobalFunctions() {
   };
 
   window.validateShares = () => {
-    if (app) {
-      app.shareManager.validateShareInput();
+    if (app && app.recoveryTabManager) {
+      app.recoveryTabManager.validateCurrentTab();
     }
   };
 }
