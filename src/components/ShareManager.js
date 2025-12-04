@@ -110,7 +110,7 @@ export class ShareManager {
     const confirmPassword = getElement(SELECTORS.CONFIRM_PASSWORD);
 
     if (!encryptionPassword || !confirmPassword) {
-      return { isValid: false, error: '加密字段缺失，请刷新页面重试' };
+      return { isValid: false, error: t('errors.encryptionFieldsMissing') };
     }
 
     const password = encryptionPassword.value;
@@ -119,13 +119,13 @@ export class ShareManager {
     // 验证密码强度
     const strengthValidation = validatePasswordStrength(password);
     if (strengthValidation.strength === 'weak') {
-      return { isValid: false, error: '密码过于简单，请使用至少8个字符，包含字母、数字和特殊字符' };
+      return { isValid: false, error: t('encryption.weakPassword') };
     }
 
     // 验证密码匹配
     const matchValidation = validatePasswordMatch(password, confirm);
     if (!matchValidation.isValid) {
-      return { isValid: false, error: '两次输入的密码不匹配' };
+      return { isValid: false, error: t('encryption.passwordMismatch') };
     }
 
     this.encryptionPassword = password;
