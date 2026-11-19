@@ -6,13 +6,13 @@
 
 ## 🚀 快速开始
 
-### Docker 部署（推荐）
+### 构建静态文件（推荐）
 ```bash
-# 克隆并使用 Docker 运行
 git clone <repository-url>
 cd MnemonicShards
-docker-compose up -d --build
-# 访问 http://localhost:8848
+bun install && bun run build
+# dist/index.html 是自包含的单文件离线版，双击即可在任意浏览器中打开
+open dist/index.html
 ```
 
 ### 本地开发
@@ -24,7 +24,7 @@ bun install && bun run dev
 # 访问 http://localhost:5173
 ```
 
-### 静态文件
+### 使用已构建的静态文件
 ```bash
 # 直接在浏览器中打开
 open dist/index.html
@@ -78,7 +78,6 @@ npx http-server dist -p 8080
 
 ### 部署选项
 - ✅ 单文件部署（dist/index.html）
-- ✅ 容器化部署及安全加固
 - ✅ 静态站点托管兼容
 - ✅ 完全离线运行
 
@@ -127,10 +126,6 @@ src/
 ├── index.html              # 主页面
 ├── package.json            # 项目配置
 ├── vite.config.js          # 构建配置
-├── Dockerfile              # Docker 容器配置
-├── docker-compose.yml      # Docker Compose 配置
-├── .dockerignore           # Docker 忽略文件
-├── DOCKER.md               # Docker 部署指南
 └── dist/                   # 构建输出
     └── index.html          # 生产版本（单文件部署）
 ```
@@ -229,64 +224,6 @@ bun run build
 bun run start
 # 访问 http://localhost:8080
 ```
-
-### Docker 部署（推荐）
-
-应用程序包含优化的 Docker 配置，用于安全的容器化部署：
-
-#### 快速启动
-
-```bash
-# 使用 Docker Compose 构建并运行
-docker-compose up -d --build
-
-# 访问应用程序
-# 访问 http://localhost:8848
-
-# 停止容器
-docker-compose down
-```
-
-#### 高级 Docker 用法
-
-```bash
-# 手动构建 Docker 镜像
-docker build -t mnemonic-shards .
-
-# 运行容器
-docker run -d \
-  --name mnemonic-shards-app \
-  -p 8848:8848 \
-  --read-only \
-  --security-opt no-new-privileges:true \
-  mnemonic-shards
-
-# 检查容器状态
-docker ps
-
-# 查看日志
-docker logs mnemonic-shards-app
-
-# 健康检查
-curl http://localhost:8848/
-```
-
-#### Docker 安全特性
-
-- **多阶段构建** - 最小化最终镜像大小
-- **非 root 用户** - 以非特权用户身份运行（UID 1001）
-- **只读文件系统** - 防止未授权修改
-- **健康检查** - 自动监控应用程序状态
-- **无网络依赖** - 完全离线运行
-- **Alpine Linux 基础** - 最小攻击面
-
-#### 容器优势
-
-- ✅ **隔离环境** - 对主机系统无影响
-- ✅ **一致性部署** - 到处都是相同的环境
-- ✅ **易于扩展** - 简单部署多个实例
-- ✅ **安全加固** - 内置安全最佳实践
-- ✅ **离线就绪** - 无需互联网连接
 
 ## 📱 安全建议
 

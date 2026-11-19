@@ -6,13 +6,13 @@ A secure, professional mnemonic phrase splitting tool that uses Shamir's Secret 
 
 ## 🚀 Quick Start
 
-### Docker (Recommended)
+### Build the Static File (Recommended)
 ```bash
-# Clone and run with Docker
 git clone <repository-url>
 cd MnemonicShards
-docker-compose up -d --build
-# Visit http://localhost:8848
+bun install && bun run build
+# dist/index.html is a self-contained single-file offline build - open it in any browser
+open dist/index.html
 ```
 
 ### Local Development
@@ -24,7 +24,7 @@ bun install && bun run dev
 # Visit http://localhost:5173
 ```
 
-### Static File
+### Use the Prebuilt Static File
 ```bash
 # Open directly in browser
 open dist/index.html
@@ -78,7 +78,6 @@ npx http-server dist -p 8080
 
 ### Deployment Options
 - ✅ Single file deployment (dist/index.html)
-- ✅ Docker containerization with security hardening
 - ✅ Static site hosting compatible
 - ✅ Completely offline operation
 
@@ -127,10 +126,6 @@ Root directory/
 ├── index.html              # Main page
 ├── package.json            # Project configuration
 ├── vite.config.js          # Build configuration
-├── Dockerfile              # Docker container configuration
-├── docker-compose.yml      # Docker Compose configuration
-├── .dockerignore           # Docker ignore file
-├── DOCKER.md               # Docker deployment guide
 └── dist/                   # Build output
     └── index.html          # Production version (single file deployment)
 ```
@@ -229,64 +224,6 @@ bun run build
 bun run start
 # Visit http://localhost:8080
 ```
-
-### Docker Deployment (Recommended)
-
-The application includes an optimized Docker configuration for secure, containerized deployment:
-
-#### Quick Start
-
-```bash
-# Build and run with Docker Compose
-docker-compose up -d --build
-
-# Access the application
-# Visit http://localhost:8848
-
-# Stop the container
-docker-compose down
-```
-
-#### Advanced Docker Usage
-
-```bash
-# Build the Docker image manually
-docker build -t mnemonic-shards .
-
-# Run the container
-docker run -d \
-  --name mnemonic-shards-app \
-  -p 8848:8848 \
-  --read-only \
-  --security-opt no-new-privileges:true \
-  mnemonic-shards
-
-# Check container status
-docker ps
-
-# View logs
-docker logs mnemonic-shards-app
-
-# Health check
-curl http://localhost:8848/
-```
-
-#### Docker Security Features
-
-- **Multi-stage build** - Minimal final image size
-- **Non-root user** - Runs as unprivileged user (UID 1001)
-- **Read-only filesystem** - Prevents unauthorized modifications
-- **Health checks** - Automatic monitoring of application status
-- **No networking dependencies** - Completely offline operation
-- **Alpine Linux base** - Minimal attack surface
-
-#### Container Benefits
-
-- ✅ **Isolated Environment** - No impact on host system
-- ✅ **Consistent Deployment** - Same environment everywhere
-- ✅ **Easy Scaling** - Simple to deploy multiple instances
-- ✅ **Security Hardened** - Built-in security best practices
-- ✅ **Offline Ready** - No internet connectivity required
 
 ## 📱 Security Recommendations
 
