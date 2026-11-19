@@ -141,6 +141,12 @@ class MnemonicSplitApp {
 
     // 更新助记词输入框的placeholder
     this.updateWordInputPlaceholders();
+
+    // 语言切换会重渲染 securityTip（含 thresholdDisplay span），需要回填阈值数字
+    const thresholdDisplay = getElement(SELECTORS.THRESHOLD_DISPLAY);
+    if (thresholdDisplay && this.shareManager.currentThreshold > 0) {
+      thresholdDisplay.textContent = this.shareManager.currentThreshold;
+    }
   }
 
   /**

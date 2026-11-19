@@ -721,7 +721,7 @@ export class RecoveryTabManager {
     if (!validation.isValid) {
       if (validation.validCount === 0) {
         this.updateStatus('invalid', t('errors.invalidShareFormat'), statusDiv);
-      } else if (validation.errors && validation.errors.some((error) => error.includes('检测到重复的分片索引'))) {
+      } else if (validation.shareIndices.size !== validation.validCount) {
         this.updateStatus('invalid', t('errors.duplicateShares'), statusDiv);
       } else {
         this.updateStatus('insufficient', t('errors.insufficientShares', validation.threshold, validation.validCount), statusDiv);

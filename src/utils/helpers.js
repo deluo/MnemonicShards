@@ -169,6 +169,20 @@ export function downloadFile(content, filename, mimeType = 'text/plain') {
 }
 
 /**
+ * Base64 字符串转字节数组
+ * @param {string} base64 - Base64编码的字符串
+ * @returns {Uint8Array} 字节数组
+ */
+export function base64ToBytes(base64) {
+  const binaryString = atob(base64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
+/**
  * Base64编码字符串
  * @param {string} str - 要编码的字符串
  * @returns {string} Base64编码后的字符串

@@ -137,7 +137,7 @@ export const CSS_CLASSES = {
 export const ERROR_MESSAGES = {
   EMPTY_WORDS: '请填写所有助记词！',
   INVALID_WORD: (index) => `第 ${index} 个单词不是有效的 BIP39 单词，请从建议列表中选择有效的单词。`,
-  DUPLICATE_WORDS: (words) => `检测到重复单词：${words}。助记词中的单词应该是唯一的，请修改重复的单词。`,
+  DUPLICATE_WORDS: (words) => `检测到重复单词：${words}。BIP39 助记词允许重复单词，但请仔细核对是否输入有误。`,
   INVALID_SHARE_FORMAT: '未检测到有效分片，请检查格式',
   INSUFFICIENT_SHARES: (valid, threshold) => `需要至少 ${threshold} 个分片，当前只有 ${valid} 个`,
   NO_VALID_SHARES: '没有找到有效的分片数据',

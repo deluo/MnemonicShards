@@ -15,6 +15,7 @@
     "serve:npm": "npx http-server -p 8080",
     "build:npm": "npm run build",
     "preview:npm": "npm run preview",
+    "verify": "node scripts/verify-bip39.mjs",
     "deploy": "gh-pages -d dist"
   },
   "keywords": [

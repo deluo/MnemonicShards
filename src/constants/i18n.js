@@ -47,9 +47,9 @@ export const TRANSLATIONS = {
 💡 Tip: Paste multiple shards at once, system will handle line breaks automatically
 
 Example format:
-eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjEsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5eiJ9
-eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjIsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5eiJ9
-eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjMsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5eiJ9`,
+eyJpbmRleCI6MSwidGhyZXNob2xkIjozLCJ0b3RhbCI6NSwiZGF0YSI6IlpZdjk5azRYckJXZmxzWEdURGowUlQxMXRqTmxPUk9yZU1Kc0I3SVQvMTJqbTcraTZKUGtycVRLMk9pdWdUVnpjQkpISHFqV2NGS3J6c0xUS2kvVFlITTVPbFlBOGpVNUo2LzlyOGpyUjBFQm1WRTFvR2taNVJBV2ZteWxaZz09In0=
+eyJpbmRleCI6MiwidGhyZXNob2xkIjozLCJ0b3RhbCI6NSwiZGF0YSI6ImV3aVVuOTN4MEY1M2M2MTZvYUcwNTNNbEZtbitUM0Q4TWh2cFFUaktDbldwYUVkcVovWkdaZ1Y4c3JRVHR1aUlhU2FzSjVBWlA0WlFXNnc4MjlETmVkd3pmM0dndTdQbW5YNEpWSDhzbE85YWp0b1ZkQUtHR21QeHpOLzVJdz09In0=
+eyJpbmRleCI6MywidGhyZXNob2xkIjozLCJ0b3RhbCI6NSwiZGF0YSI6IjI2WEpJMExnY0p5VjRyU3p5YmgwQ2RLQUlFVTZwd1dmL05KVTEvcy93ekRHdG4yc0tWcDZ6eHFLTTE2QlYxVEJHaE1VUldqWGpPR2w4azhxejlHWXd2amdjeGxITEs3UFlHSjJkaFVNZDhvZzdaekEwQmZETnIrbElKZkhCQT09In0=`,
     waitingForInput: 'Waiting for shard input...',
 
     // Tab相关
@@ -92,9 +92,11 @@ eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjMsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2
     errors: {
       fillAllWords: 'Please fill in all mnemonic words!',
       invalidWord: (index) => `Word ${index} is not a valid BIP39 word, please select a valid word from the suggestions.`,
-      invalidWordCleared: (index) =>
-        `<strong>Invalid mnemonic:</strong> Word ${index} is not a valid BIP39 word and has been automatically cleared. Please select a valid word from the suggestions.`,
-      duplicateWords: (words) => `Duplicate words found: ${words.join(', ')}. Each word should be unique.`,
+      duplicateWords: (words) => `Duplicate words found: ${words.join(', ')}. Duplicate words are allowed in BIP39 mnemonics, but please double-check them.`,
+      checksumFailed: 'Mnemonic checksum validation failed: a word may be mistyped or out of order. Please verify each word before generating shares.',
+      recoveredChecksumFailed: 'Recovery failed: the reconstructed phrase failed BIP39 checksum validation. The shares may be corrupted, mistyped, or belong to different mnemonics.',
+      recoveredInvalidWord: (word) => `Recovery failed: the reconstructed phrase contains a word that is not in the BIP39 wordlist: "${word}".`,
+      recoveredInvalidLength: (count) => `Recovery failed: the reconstructed phrase has ${count} words, which is not a valid BIP39 mnemonic length.`,
       invalidShareFormat: 'Invalid share format. Please check your input.',
       insufficientShares: (required, provided) => `Insufficient shares. Need at least ${required} shares, but got ${provided}.`,
       duplicateShares: 'Duplicate shares detected. Each share should be unique.',
@@ -104,9 +106,10 @@ eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjMsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2
       copyFailed: 'Failed to copy to clipboard',
       downloadFailed: 'Download failed, please try again',
       encryptionFieldsMissing: 'Encryption fields are missing',
-      fileTypeNotSupported: 'File type not supported: {0}',
-      fileTooLarge: 'File too large: {0}',
-      duplicateFile: 'Duplicate file: {0}',
+      fileTypeNotSupported: (name) => `File type not supported: ${name}`,
+      fileTooLarge: (name) => `File too large: ${name}`,
+      duplicateFile: (name) => `Duplicate file: ${name}`,
+      generateFailed: (message) => `Failed to generate shares: ${message}`,
     },
 
     success: {
@@ -120,7 +123,7 @@ eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjMsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2
 
     warnings: {
       duplicateWordsDetected: 'Duplicate words detected:',
-      uniqueWordsNote: 'Words in the mnemonic should be unique, please check and modify duplicate words.',
+      uniqueWordsNote: 'Duplicate words are allowed in a valid BIP39 mnemonic; this notice is just a reminder to double-check those words.',
       duplicateWords: (words) => `Duplicate words detected: ${words.join(', ')}`,
     },
 
@@ -246,9 +249,9 @@ eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjMsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2
 💡 提示：直接粘贴多个分片，系统会自动处理换行
 
 示例格式：
-eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjEsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5eiJ9
-eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjIsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5eiJ9
-eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjMsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5eiJ9`,
+eyJpbmRleCI6MSwidGhyZXNob2xkIjozLCJ0b3RhbCI6NSwiZGF0YSI6IlpZdjk5azRYckJXZmxzWEdURGowUlQxMXRqTmxPUk9yZU1Kc0I3SVQvMTJqbTcraTZKUGtycVRLMk9pdWdUVnpjQkpISHFqV2NGS3J6c0xUS2kvVFlITTVPbFlBOGpVNUo2LzlyOGpyUjBFQm1WRTFvR2taNVJBV2ZteWxaZz09In0=
+eyJpbmRleCI6MiwidGhyZXNob2xkIjozLCJ0b3RhbCI6NSwiZGF0YSI6ImV3aVVuOTN4MEY1M2M2MTZvYUcwNTNNbEZtbitUM0Q4TWh2cFFUaktDbldwYUVkcVovWkdaZ1Y4c3JRVHR1aUlhU2FzSjVBWlA0WlFXNnc4MjlETmVkd3pmM0dndTdQbW5YNEpWSDhzbE85YWp0b1ZkQUtHR21QeHpOLzVJdz09In0=
+eyJpbmRleCI6MywidGhyZXNob2xkIjozLCJ0b3RhbCI6NSwiZGF0YSI6IjI2WEpJMExnY0p5VjRyU3p5YmgwQ2RLQUlFVTZwd1dmL05KVTEvcy93ekRHdG4yc0tWcDZ6eHFLTTE2QlYxVEJHaE1VUldqWGpPR2w4azhxejlHWXd2amdjeGxITEs3UFlHSjJkaFVNZDhvZzdaekEwQmZETnIrbElKZkhCQT09In0=`,
     waitingForInput: '等待输入分片...',
 
     // Tab相关
@@ -290,8 +293,11 @@ eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjMsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2
     errors: {
       fillAllWords: '请填写所有助记词！',
       invalidWord: (index) => `第 ${index} 个单词不是有效的 BIP39 单词，请从建议列表中选择有效的单词。`,
-      invalidWordCleared: (index) => `<strong>无效助记词：</strong> 第 ${index} 个输入框中的单词不是有效的 BIP39 单词，已自动清空。请从建议列表中选择有效的单词。`,
-      duplicateWords: (words) => `发现重复单词：${words.join(', ')}。每个单词应该是唯一的。`,
+      duplicateWords: (words) => `发现重复单词：${words.join(', ')}。BIP39 助记词允许重复单词，但请仔细核对是否输入有误。`,
+      checksumFailed: '助记词校验和验证失败：单词拼写或顺序可能有误，请逐词核对后再生成分片。',
+      recoveredChecksumFailed: '恢复失败：还原结果未通过 BIP39 校验和验证。分片可能已损坏、抄录有误或不属于同一组助记词。',
+      recoveredInvalidWord: (word) => `恢复失败：还原结果包含不在 BIP39 词表中的单词："${word}"。`,
+      recoveredInvalidLength: (count) => `恢复失败：还原结果为 ${count} 个单词，不是有效的 BIP39 助记词长度。`,
       invalidShareFormat: '无效的分片格式。请检查您的输入。',
       insufficientShares: (required, provided) => `分片数量不足。至少需要 ${required} 个分片，但只提供了 ${provided} 个。`,
       duplicateShares: '检测到重复的分片。每个分片应该是唯一的。',
@@ -301,9 +307,10 @@ eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjMsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2
       copyFailed: '复制到剪贴板失败',
       downloadFailed: '下载失败，请重试',
       encryptionFieldsMissing: '加密字段缺失',
-      fileTypeNotSupported: '不支持的文件类型：{0}',
-      fileTooLarge: '文件过大：{0}',
-      duplicateFile: '重复文件：{0}',
+      fileTypeNotSupported: (name) => `不支持的文件类型：${name}`,
+      fileTooLarge: (name) => `文件过大：${name}`,
+      duplicateFile: (name) => `重复文件：${name}`,
+      generateFailed: (message) => `生成分片失败：${message}`,
     },
 
     success: {
@@ -317,7 +324,7 @@ eyJ0aHJlc2hvbGQiOjMsInNoYXJlSW5kZXgiOjMsImRhdGEiOiJhYmNkZWZnaGlqa2xtbm9wcXJzdHV2
 
     warnings: {
       duplicateWordsDetected: '检测到重复单词：',
-      uniqueWordsNote: '助记词中的单词应该是唯一的，请检查并修改重复的单词。',
+      uniqueWordsNote: 'BIP39 助记词允许出现重复单词，此提示仅用于提醒您核对输入是否正确。',
       duplicateWords: (words) => `检测到重复单词：${words.join(', ')}`,
     },
 

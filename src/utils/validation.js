@@ -2,6 +2,9 @@
  * 验证工具函数
  */
 
+// BIP39 标准支持的助记词数量（ENT 及对应校验和位数）
+const BIP39_VALID_WORD_COUNTS = [12, 15, 18, 21, 24];
+
 /**
  * 验证是否为有效的 BIP39 单词
  * @param {string[]} wordList - BIP39单词列表
@@ -56,8 +59,10 @@ export function parseShareData(shareString) {
 
 /**
  * 验证助记词完整性
+ * 注意：BIP39 助记词允许出现重复单词（12 词重复概率约 3%，24 词约 13%），
+ * 因此重复单词只作为提示返回，不计入 errors，不阻断流程。
  * @param {string[]} words - 助记词数组
- * @returns {Object} 验证结果 { isValid: boolean, errors: string[] }
+ * @returns {Object} 验证结果 { isValid: boolean, errors: string[], duplicates: string[] }
  */
 export function validateMnemonic(words) {
   const errors = [];
@@ -69,7 +74,7 @@ export function validateMnemonic(words) {
     errors.push('存在空单词，请填写所有助记词');
   }
 
-  // 检查重复单词
+  // 收集重复单词（仅提示，不阻断）
   words.forEach((word) => {
     const trimmedWord = word.trim().toLowerCase();
     if (wordSet.has(trimmedWord)) {
@@ -79,16 +84,68 @@ export function validateMnemonic(words) {
     }
   });
 
-  if (duplicates.size > 0) {
-    const duplicateWords = Array.from(duplicates).join(', ');
-    errors.push(`检测到重复单词：${duplicateWords}`);
-  }
-
   return {
     isValid: errors.length === 0,
     errors,
     duplicates: Array.from(duplicates),
   };
+}
+
+/**
+ * 验证 BIP39 助记词校验和
+ * 按 BIP39 规范：单词索引拼接为位串，前 ENT 位为熵，后 MS 位为
+ * SHA-256(熵) 的前 MS 位，两者必须一致。
+ * @param {string[]} wordList - BIP39单词列表
+ * @param {string[]} words - 助记词数组
+ * @returns {Promise<Object>} 验证结果
+ *   { isValid: boolean, reason?: 'count'|'word'|'checksum', count?: number, word?: string }
+ */
+export async function validateMnemonicChecksum(wordList, words) {
+  if (!Array.isArray(words) || words.length === 0) {
+    return { isValid: false, reason: 'count', count: 0 };
+  }
+
+  const normalized = words.map((word) => word.trim().toLowerCase());
+  const wordCount = normalized.length;
+
+  if (!BIP39_VALID_WORD_COUNTS.includes(wordCount)) {
+    return { isValid: false, reason: 'count', count: wordCount };
+  }
+
+  // 单词索引 → 11 位二进制位串
+  const bits = new Uint8Array(wordCount * 11);
+  for (let i = 0; i < wordCount; i++) {
+    const index = wordList.indexOf(normalized[i]);
+    if (index === -1) {
+      return { isValid: false, reason: 'word', word: normalized[i] };
+    }
+    for (let b = 0; b < 11; b++) {
+      bits[i * 11 + b] = (index >> (10 - b)) & 1;
+    }
+  }
+
+  const totalBits = wordCount * 11;
+  const entropyBits = (totalBits / 33) * 32;
+  const checksumBits = totalBits - entropyBits;
+
+  // 前 entropyBits 位 → 熵字节
+  const entropy = new Uint8Array(entropyBits / 8);
+  for (let i = 0; i < entropyBits; i++) {
+    if (bits[i]) {
+      entropy[i >> 3] |= 1 << (7 - (i & 7));
+    }
+  }
+
+  // SHA-256(熵) 的前 checksumBits 位必须与位串末尾一致
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', entropy));
+  for (let i = 0; i < checksumBits; i++) {
+    const expected = (digest[i >> 3] >> (7 - (i & 7))) & 1;
+    if (expected !== bits[entropyBits + i]) {
+      return { isValid: false, reason: 'checksum' };
+    }
+  }
+
+  return { isValid: true };
 }
 
 /**

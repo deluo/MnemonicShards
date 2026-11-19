@@ -169,9 +169,9 @@ export class MnemonicInput {
       toggleClass(input, CSS_CLASSES.INVALID_WORD, false);
       toggleClass(input, CSS_CLASSES.VALID_WORD, true);
     } else {
+      // 只标红提示，不清空用户输入（清空会导致用户正在抄录的内容被静默删除）
       toggleClass(input, CSS_CLASSES.VALID_WORD, false);
       toggleClass(input, CSS_CLASSES.INVALID_WORD, true);
-      input.value = '';
       this.showInvalidWordError(index);
     }
 
@@ -185,7 +185,7 @@ export class MnemonicInput {
   showInvalidWordError(index) {
     const errorAlert = getElement(SELECTORS.INPUT_ERROR_ALERT);
     if (errorAlert) {
-      errorAlert.textContent = t('errors.invalidWordCleared', index);
+      errorAlert.textContent = t('errors.invalidWord', index);
       toggleElement(errorAlert, true);
 
       setTimeout(() => {

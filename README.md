@@ -300,6 +300,17 @@ curl http://localhost:8848/
 8. **Password Separation** - Store passwords in a different location than the encrypted shards
 9. **Memorize Critical Passwords** - Consider memorizing encryption passwords for ultimate security
 10. **Password Backup** - Create secure backups of encryption passwords using different methods
+11. **Prefer Encrypted Shares** - Plaintext (unencrypted) shards may leak structural information about the mnemonic (word count, encoding patterns) when fewer than the threshold number of shards is compromised. Enabling OpenPGP encryption turns shard contents into uniformly random ciphertext and eliminates this risk, while the password layer remains decryptable at any time with standard GPG tools (`gpg --decrypt`)
+12. **Archive an Offline Copy of the Tool** - `dist/index.html` is a single-file offline build that runs recovery with a double-click, no network needed. Archive it alongside your shards so recovery never depends on any online service
+
+## 📄 Shard Format Specification (Escape-Hatch Documentation)
+
+You can recover your mnemonic without this tool — shards are not deeply bound to this project:
+
+- Each shard is a Base64 string that decodes to JSON: `{"index": <share number>, "threshold": <recovery threshold>, "total": <total shares>, "data": "<Base64(secret share bytes)>"}`
+- Recovery: take any `threshold` shards → decode the JSON → Base64-decode the `data` field → combine using Shamir's Secret Sharing over GF(2^8) (e.g. the independently audited [shamir-secret-sharing](https://www.npmjs.com/package/shamir-secret-sharing) library) → the result is the UTF-8 encoded mnemonic → validate per the BIP39 standard
+- With encryption enabled, shard files are standard OpenPGP (`.gpg`): first run `gpg --decrypt` to obtain the Base64 string above, then follow the same steps
+- Run `npm run verify` to see a standalone recovery demo that uses zero project code
 
 ## 🔧 Shard Configuration Examples
 
