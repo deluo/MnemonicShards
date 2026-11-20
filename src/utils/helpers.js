@@ -111,14 +111,6 @@ export function safeJSONParse(str, defaultValue = null) {
 }
 
 /**
- * 检查是否为移动设备
- * @returns {boolean} 是否为移动设备
- */
-export function isMobile() {
-  return window.innerWidth <= 768;
-}
-
-/**
  * 复制文本到剪贴板
  * @param {string} text - 要复制的文本
  * @returns {Promise<boolean>} 是否复制成功

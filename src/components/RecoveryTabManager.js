@@ -6,7 +6,6 @@
 import { getElement, createElement, toggleElement, toggleClass, setHTML, clearElement, addEvent } from '../utils/dom.js';
 import { validateShareCollection } from '../utils/validation.js';
 import { validatePasswordMatch, decryptWithPassword, detectGpgFormat } from '../utils/encryption.js';
-import { t } from '../utils/i18n.js';
 import { passwordDialog } from './PasswordDialog.js';
 
 export class RecoveryTabManager {
@@ -32,7 +31,6 @@ export class RecoveryTabManager {
   init() {
     this.setupTabSwitching();
     this.setupFileUpload();
-    this.setupDragAndDrop();
     this.setupEncryptionPassword();
   }
 
@@ -120,40 +118,6 @@ export class RecoveryTabManager {
   }
 
   /**
-   * 设置拖拽上传
-   */
-  setupDragAndDrop() {
-    const uploadArea = getElement('#uploadArea');
-    if (!uploadArea) return;
-
-    // 防止默认拖拽行为
-    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach((eventName) => {
-      addEvent(uploadArea, eventName, (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      });
-    });
-
-    // 拖拽进入
-    ['dragenter', 'dragover'].forEach((eventName) => {
-      addEvent(uploadArea, eventName, () => {
-        toggleClass(uploadArea, 'drag-over', true);
-      });
-    });
-
-    // 拖拽离开
-    addEvent(uploadArea, 'dragleave', () => {
-      toggleClass(uploadArea, 'drag-over', false);
-    });
-
-    // 文件放下
-    addEvent(uploadArea, 'drop', (e) => {
-      toggleClass(uploadArea, 'drag-over', false);
-      this.handleFileSelect(e.dataTransfer.files);
-    });
-  }
-
-  /**
    * 处理文件选择
    * @param {FileList} files - 文件列表
    */
@@ -208,19 +172,19 @@ export class RecoveryTabManager {
       const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
 
       if (!validExtensions.includes(fileExtension)) {
-        this.showError(t('errors.fileTypeNotSupported', file.name));
+        this.showError(`不支持的文件类型：${file.name}`);
         continue;
       }
 
       // 检查文件大小
       if (file.size > maxSize) {
-        this.showError(t('errors.fileTooLarge', file.name));
+        this.showError(`文件过大：${file.name}`);
         continue;
       }
 
       // 检查重复文件
       if (this.uploadedFiles.some((f) => f.name === file.name)) {
-        this.showError(t('errors.duplicateFile', file.name));
+        this.showError(`重复文件：${file.name}`);
         continue;
       }
 
@@ -336,7 +300,7 @@ export class RecoveryTabManager {
 
     // 如果重试仍然失败，显示错误信息
     if (!decryptionSuccess) {
-      this.showError(t('encryption.invalidPassword') || '密码错误或文件格式无效');
+      this.showError('密码无效，请检查后重试');
     }
   }
 
@@ -356,13 +320,13 @@ export class RecoveryTabManager {
     const encryptedFiles = this.uploadedFiles.filter((file) => file.status === 'encrypted');
 
     if (allShares.length === 0 && encryptedFiles.length === 0) {
-      this.updateStatus('invalid', t('errors.noValidShares'), statusDiv);
+      this.updateStatus('invalid', '没有找到有效的分片数据', statusDiv);
       recoverBtn.disabled = true;
       return;
     }
 
     if (allShares.length === 0 && encryptedFiles.length > 0) {
-      this.updateStatus('waiting', t('encryption.passwordRequired'), statusDiv);
+      this.updateStatus('waiting', '解密需要密码', statusDiv);
       recoverBtn.disabled = false; // 允许用户点击恢复按钮，然后在恢复时弹出密码输入框
       return;
     }
@@ -371,15 +335,15 @@ export class RecoveryTabManager {
     const validation = validateShareCollection(allShares);
 
     if (validation.isValid) {
-      this.updateStatus('valid', t('sharesDecrypted', validation.validCount, validation.threshold), statusDiv);
+      this.updateStatus('valid', `检测到 ${validation.validCount} 个有效分片（需要 ${validation.threshold} 个），可以开始恢复`, statusDiv);
       recoverBtn.disabled = false;
       this.currentThreshold = validation.threshold;
       this.validShareCount = validation.validCount;
     } else {
       if (validation.validCount < validation.threshold) {
-        this.updateStatus('insufficient', t('insufficientSharesAfterDecryption', validation.threshold, validation.validCount), statusDiv);
+        this.updateStatus('insufficient', `解密后分片数量不足。至少需要 ${validation.threshold} 个分片，但只有 ${validation.validCount} 个。`, statusDiv);
       } else {
-        this.updateStatus('invalid', t('errors.invalidShareFormat'), statusDiv);
+        this.updateStatus('invalid', '无效的分片格式。请检查您的输入。', statusDiv);
       }
       recoverBtn.disabled = true;
     }
@@ -604,24 +568,14 @@ export class RecoveryTabManager {
    * @returns {string} 状态文本
    */
   getFileStatusText(status) {
-    const statusTexts = t('fileStatus');
-    if (typeof statusTexts === 'object') {
-      return statusTexts[status] || statusTexts.unknown;
-    }
-
-    // 回退到英文
-    switch (status) {
-      case 'processing':
-        return 'Processing...';
-      case 'valid':
-        return 'Valid share';
-      case 'invalid':
-        return 'Invalid format';
-      case 'encrypted':
-        return 'Encrypted - awaiting decryption';
-      default:
-        return 'Unknown status';
-    }
+    const statusTexts = {
+      processing: '处理中...',
+      valid: '有效分片',
+      invalid: '格式无效',
+      encrypted: '加密文件 - 等待解密',
+      unknown: '未知状态',
+    };
+    return statusTexts[status] || statusTexts.unknown;
   }
 
   /**
@@ -672,7 +626,7 @@ export class RecoveryTabManager {
     const inputText = input.value.trim();
 
     if (!inputText) {
-      this.updateStatus('waiting', t('waitingForInput'), statusDiv);
+      this.updateStatus('waiting', '等待输入分片...', statusDiv);
       recoverBtn.disabled = true;
       return;
     }
@@ -683,7 +637,7 @@ export class RecoveryTabManager {
       .filter((line) => line.length > 0);
 
     if (shareStrings.length === 0) {
-      this.updateStatus('waiting', t('waitingForInput'), statusDiv);
+      this.updateStatus('waiting', '等待输入分片...', statusDiv);
       recoverBtn.disabled = true;
       return;
     }
@@ -702,7 +656,7 @@ export class RecoveryTabManager {
     if (!statusDiv || !recoverBtn) return;
 
     if (this.uploadedFiles.length === 0) {
-      this.updateStatus('waiting', t('waitingForUpload'), statusDiv);
+      this.updateStatus('waiting', '等待文件上传...', statusDiv);
       recoverBtn.disabled = true;
       return;
     }
@@ -720,15 +674,15 @@ export class RecoveryTabManager {
   processValidationResult(validation, statusDiv, recoverBtn) {
     if (!validation.isValid) {
       if (validation.validCount === 0) {
-        this.updateStatus('invalid', t('errors.invalidShareFormat'), statusDiv);
+        this.updateStatus('invalid', '无效的分片格式。请检查您的输入。', statusDiv);
       } else if (validation.shareIndices.size !== validation.validCount) {
-        this.updateStatus('invalid', t('errors.duplicateShares'), statusDiv);
+        this.updateStatus('invalid', '检测到重复的分片。每个分片应该是唯一的。', statusDiv);
       } else {
-        this.updateStatus('insufficient', t('errors.insufficientShares', validation.threshold, validation.validCount), statusDiv);
+        this.updateStatus('insufficient', `分片数量不足。至少需要 ${validation.threshold} 个分片，但只提供了 ${validation.validCount} 个。`, statusDiv);
       }
       recoverBtn.disabled = true;
     } else {
-      this.updateStatus('valid', t('info.validShares', validation.validCount, validation.threshold), statusDiv);
+      this.updateStatus('valid', `检测到 ${validation.validCount} 个有效分片（需要 ${validation.threshold} 个），可以开始恢复`, statusDiv);
       recoverBtn.disabled = false;
       this.currentThreshold = validation.threshold;
       this.validShareCount = validation.validCount;
@@ -779,14 +733,6 @@ export class RecoveryTabManager {
       // 返回有效的分片数据对象
       return this.uploadedFiles.filter((file) => file.status === 'valid' && file.shareData).map((file) => file.shareData);
     }
-  }
-
-  /**
-   * 获取加密密码
-   * @returns {string} 加密密码（现在总是返回空字符串，因为使用弹框输入）
-   */
-  getEncryptionPassword() {
-    return '';
   }
 
   /**
@@ -878,7 +824,7 @@ export class RecoveryTabManager {
 
     this.passwordVisible = !this.passwordVisible;
     passwordInput.type = this.passwordVisible ? 'text' : 'password';
-    passwordToggle.querySelector('.password-toggle-icon').textContent = this.passwordVisible ? 'Hide' : 'Show';
+    passwordToggle.querySelector('.password-toggle-icon').textContent = this.passwordVisible ? '隐藏' : '显示';
   }
 
   
@@ -931,7 +877,7 @@ export class RecoveryTabManager {
     indicator.appendChild(iconSpan);
 
     const textSpan = document.createElement('span');
-    textSpan.textContent = t('encryption.encryptedFileDetected') || '检测到加密文件，需要输入密码进行解密';
+    textSpan.textContent = '检测到加密文件，需要输入密码进行解密';
     indicator.appendChild(textSpan);
 
     // 插入到上传区域之前
@@ -953,7 +899,7 @@ export class RecoveryTabManager {
    */
   async applyDecryption() {
     if (!this.uploadPassword) {
-      this.showError(t('encryption.passwordRequired') || '请输入解密密码');
+      this.showError('解密需要密码');
       return;
     }
 
@@ -961,7 +907,7 @@ export class RecoveryTabManager {
     const encryptedFiles = this.uploadedFiles.filter((file) => file.status === 'encrypted');
 
     if (encryptedFiles.length === 0) {
-      this.showError(t('encryption.noEncryptedFiles') || '没有需要解密的文件');
+      this.showError('没有需要解密的文件');
       return;
     }
 

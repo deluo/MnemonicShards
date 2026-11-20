@@ -4,7 +4,6 @@
  */
 
 import { getElement, createElement, toggleElement, addEvent } from '../utils/dom.js';
-import { t } from '../utils/i18n.js';
 
 export class PasswordDialog {
   constructor() {
@@ -45,18 +44,18 @@ export class PasswordDialog {
 
     // 创建标题
     const title = createElement('h3', ['password-dialog-title']);
-    title.textContent = this.isRetry ? t('passwordDialog.retryTitle') : t('passwordDialog.title');
+    title.textContent = this.isRetry ? '密码错误' : '输入解密密码';
 
     // 创建消息
     const message = createElement('p', ['password-dialog-message']);
-    message.textContent = this.isRetry ? t('passwordDialog.retryMessage') : t('passwordDialog.message');
+    message.textContent = this.isRetry ? '您输入的密码不正确，请重试。' : '请输入密码以解密分片。';
 
     // 创建密码输入组
     const inputGroup = createElement('div', ['password-input-group']);
 
     const label = createElement('label', ['password-label']);
     label.setAttribute('for', 'dialogPasswordInput');
-    label.textContent = t('encryption.passwordLabel');
+    label.textContent = '密码';
 
     // 创建密码输入容器
     const passwordWrapper = createElement('div', ['password-input-wrapper']);
@@ -64,7 +63,7 @@ export class PasswordDialog {
     const input = createElement('input', ['password-input']);
     input.id = 'dialogPasswordInput';
     input.type = 'password';
-    input.placeholder = t('encryption.passwordPlaceholder');
+    input.placeholder = '请输入加密密码';
     input.autocomplete = 'new-password';
 
     // 创建密码可见/隐藏切换按钮
@@ -83,11 +82,11 @@ export class PasswordDialog {
     const buttonGroup = createElement('div', ['password-dialog-buttons']);
 
     const confirmBtn = createElement('button', ['btn', 'btn-primary']);
-    confirmBtn.textContent = t('passwordDialog.confirm');
+    confirmBtn.textContent = '确认';
     confirmBtn.id = 'dialogConfirmBtn';
 
     const cancelBtn = createElement('button', ['btn', 'btn-secondary']);
-    cancelBtn.textContent = t('passwordDialog.cancel');
+    cancelBtn.textContent = '取消';
     cancelBtn.id = 'dialogCancelBtn';
 
     buttonGroup.appendChild(confirmBtn);

@@ -1,65 +1,55 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>MnemonicShards - Mnemonic Phrase Splitting Tool</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MnemonicShards - 助记词分片工具</title>
     <link rel="stylesheet" href="/src/styles/styles.css" />
   </head>
   <body>
     <div class="container">
       <div class="header">
-        <!-- Language Switcher -->
-        <div class="language-switcher">
-          <span class="language-switcher-label" data-i18n="language">Language</span>
-          <div class="language-toggle">
-            <button class="language-btn active" data-lang="en">EN</button>
-            <button class="language-btn" data-lang="zh">中文</button>
-          </div>
-        </div>
-
         <h1>MnemonicShards</h1>
-        <p data-i18n="appDescription">Securely split your mnemonic phrase into multiple shards. Any specified number of shards can recover the original mnemonic.</p>
+        <p>安全地将助记词分割成多个分片，任意指定数量的分片即可恢复原始助记词</p>
       </div>
 
       <div class="main-content">
         <!-- 安全提示 -->
-        <div class="alert security-notice" data-i18n="securityNotice">
-          <strong>Security Mode:</strong> Using professional-grade Shamir Secret Sharing algorithm, runs completely offline, data never leaves your device. Recommended to use in disconnected
-          environment for maximum security.
+        <div class="alert security-notice">
+          <strong>安全模式：</strong> 使用专业级 Shamir 秘密分享算法，完全离线运行，数据不会离开您的设备。建议在断网环境中使用以获得最高安全性。
         </div>
 
         <!-- 配置区域 -->
         <div class="section">
-          <div class="section-title" data-i18n="configTitle">Configuration Options</div>
+          <div class="section-title">配置选项</div>
 
           <div class="controls">
             <div class="control-group">
-              <label data-i18n="wordCountLabel">Mnemonic Word Count</label>
+              <label>助记词数量</label>
               <div class="btn-group" id="wordCountButtons">
-                <button id="words12" class="active" onclick="setWordCount(12)" data-i18n="words12">12 words</button>
-                <button id="words24" onclick="setWordCount(24)" data-i18n="words24">24 words</button>
+                <button id="words12" class="active" onclick="setWordCount(12)">12 个单词</button>
+                <button id="words24" onclick="setWordCount(24)">24 个单词</button>
               </div>
             </div>
 
             <div class="control-group">
-              <label data-i18n="totalSharesLabel">Total Shares</label>
+              <label>分片总数</label>
               <select id="totalShares">
-                <option value="3">3 shares</option>
-                <option value="4">4 shares</option>
-                <option value="5" selected>5 shares</option>
-                <option value="6">6 shares</option>
-                <option value="7">7 shares</option>
+                <option value="3">3 个分片</option>
+                <option value="4">4 个分片</option>
+                <option value="5" selected>5 个分片</option>
+                <option value="6">6 个分片</option>
+                <option value="7">7 个分片</option>
               </select>
             </div>
 
             <div class="control-group">
-              <label data-i18n="thresholdLabel">Shares Required for Recovery</label>
+              <label>恢复所需分片数</label>
               <select id="threshold">
-                <option value="2">2 shares</option>
-                <option value="3" selected>3 shares</option>
-                <option value="4">4 shares</option>
-                <option value="5">5 shares</option>
+                <option value="2">2 个分片</option>
+                <option value="3" selected>3 个分片</option>
+                <option value="4">4 个分片</option>
+                <option value="5">5 个分片</option>
               </select>
             </div>
           </div>
@@ -67,7 +57,7 @@
 
         <!-- 助记词输入区域 -->
         <div class="section">
-          <div class="section-title" data-i18n="inputTitle">Enter Mnemonic Phrase</div>
+          <div class="section-title">输入助记词</div>
 
           <div id="inputErrorAlert" style="display: none" class="alert alert-error">
             <!-- BIP39 单词验证错误提示将在这里显示 -->
@@ -89,85 +79,82 @@
             <!-- 动态生成输入框 -->
           </div>
 
-          <button class="action-btn" onclick="generateShares()" id="generateBtn" data-i18n="generateBtn">Generate Shares</button>
+          <button class="action-btn" onclick="generateShares()" id="generateBtn">生成分片</button>
         </div>
 
         <!-- 分片结果区域 -->
         <div id="sharesResult" style="display: none">
-          <div class="section-title" data-i18n="sharesTitle">Generated Shares</div>
+          <div class="section-title">生成的分片</div>
 
           <!-- 加密选项区域 -->
           <div class="encryption-section" id="encryptionSection">
-            <div class="section-subtitle" data-i18n="encryption.title">Encryption Options</div>
-            <div class="alert alert-info" data-i18n="encryption.encryptionDescription">
-              Add an extra layer of security by encrypting each shard with OpenPGP format, compatible with GPG tools
-            </div>
+            <div class="section-subtitle">加密选项</div>
+            <div class="alert alert-info">通过密码对每个分片进行加密，增加额外的安全层</div>
 
             <div class="encryption-controls">
               <div class="control-group">
                 <label class="checkbox-container">
                   <input type="checkbox" id="enableEncryption" />
                   <span class="checkmark"></span>
-                  <span data-i18n="encryption.enableEncryption">Enable Encryption</span>
+                  <span>启用加密</span>
                 </label>
               </div>
 
               <div id="encryptionFields" class="encryption-fields" style="display: none">
                 <div class="control-group">
-                  <label for="encryptionPassword" data-i18n="encryption.passwordLabel">Password</label>
-                  <input type="password" id="encryptionPassword" class="password-input" data-i18n-placeholder="encryption.passwordPlaceholder" placeholder="Enter encryption password" />
+                  <label for="encryptionPassword">密码</label>
+                  <input type="password" id="encryptionPassword" class="password-input" placeholder="请输入加密密码" />
                   <div class="password-strength" id="passwordStrength"></div>
                 </div>
 
                 <div class="control-group">
-                  <label for="confirmPassword" data-i18n="encryption.confirmPasswordLabel">Confirm Password</label>
+                  <label for="confirmPassword">确认密码</label>
                   <input
                     type="password"
                     id="confirmPassword"
                     class="password-input"
-                    data-i18n-placeholder="encryption.confirmPasswordPlaceholder"
-                    placeholder="Confirm encryption password"
+                    placeholder="请确认加密密码"
                   />
                   <div class="password-match" id="passwordMatch"></div>
                 </div>
 
-                <div class="alert alert-warning" data-i18n="encryption.passwordTip">
-                  <strong>Important:</strong> Make sure to remember your password, as it will be required to recover the mnemonic
+                <div class="alert alert-warning">
+                  <strong>重要：</strong> 请务必记住您的密码，恢复助记词时将需要此密码
                 </div>
               </div>
             </div>
           </div>
 
-          <div class="alert alert-info" data-i18n="securityTip">
-            <strong>Security Tip:</strong> Store these shards in different secure locations. Any <span id="thresholdDisplay"></span> shares can recover the complete mnemonic.
+          <div class="alert alert-info">
+            <strong>安全提示：</strong> 请将这些分片分别保存在不同的安全位置。任意 <span id="thresholdDisplay"></span> 个分片即可恢复完整的助记词。
           </div>
           <div id="sharesList"></div>
         </div>
 
         <!-- 恢复区域 -->
         <div class="section recover-section">
-          <div class="section-title" data-i18n="recoverTitle">Recover Mnemonic Phrase</div>
+          <div class="section-title">恢复助记词</div>
 
           <!-- Tab切换按钮 -->
           <div class="recovery-tabs">
-            <button class="tab-btn active" id="pasteTabBtn" data-tab="paste" data-i18n="pasteInputTab">Paste Input</button>
-            <button class="tab-btn" id="uploadTabBtn" data-tab="upload" data-i18n="fileUploadTab">File Upload</button>
+            <button class="tab-btn active" id="pasteTabBtn" data-tab="paste">粘贴输入</button>
+            <button class="tab-btn" id="uploadTabBtn" data-tab="upload">文件上传</button>
           </div>
 
           <!-- Tab内容区域 -->
           <div class="tab-content">
             <!-- 粘贴输入Tab -->
             <div class="tab-pane active" id="pasteTab">
-              <div class="alert alert-info" data-i18n="recoverInstructions">
-                <strong>Instructions:</strong><br />
-                1. Paste each shard into the text box below, one shard per line<br />
-                2. Shard format should be complete Base64 encoded string<br />
-                3. Minimum number of shards must be reached for recovery<br />
-                4. Extra shards will be automatically ignored
+              <div class="alert alert-info">
+                <strong>使用说明：</strong><br />
+                1. 将每个分片粘贴到下方文本框中，每行一个分片<br />
+                2. 分片格式应为完整的 Base64 编码字符串<br />
+                3. 至少需要达到设定的最小分片数量才能恢复<br />
+                4. 多余的分片会被自动忽略
               </div>
 
               <div class="input-status" id="inputStatus">
-                <span class="status-text" data-i18n="waitingForInput">Waiting for shard input...</span>
+                <span class="status-text">等待输入分片...</span>
               </div>
 
               <textarea
@@ -175,12 +162,11 @@
                 id="recoverInput"
                 rows="8"
                 wrap="soft"
-                data-i18n-placeholder="recoverPlaceholder"
-                placeholder="Paste shard contents here, one shard per line...
+                placeholder="请在此处粘贴分片内容，每行一个分片...
 
-💡 Tip: Paste multiple shards at once, system will handle line breaks automatically
+💡 提示：直接粘贴多个分片，系统会自动处理换行
 
-Example format:
+示例格式：
 eyJpbmRleCI6MSwidGhyZXNob2xkIjozLCJ0b3RhbCI6NSwiZGF0YSI6IlpZdjk5azRYckJXZmxzWEdURGowUlQxMXRqTmxPUk9yZU1Kc0I3SVQvMTJqbTcraTZKUGtycVRLMk9pdWdUVnpjQkpISHFqV2NGS3J6c0xUS2kvVFlITTVPbFlBOGpVNUo2LzlyOGpyUjBFQm1WRTFvR2taNVJBV2ZteWxaZz09In0=
 eyJpbmRleCI6MiwidGhyZXNob2xkIjozLCJ0b3RhbCI6NSwiZGF0YSI6ImV3aVVuOTN4MEY1M2M2MTZvYUcwNTNNbEZtbitUM0Q4TWh2cFFUaktDbldwYUVkcVovWkdaZ1Y4c3JRVHR1aUlhU2FzSjVBWlA0WlFXNnc4MjlETmVkd3pmM0dndTdQbW5YNEpWSDhzbE85YWp0b1ZkQUtHR21QeHpOLzVJdz09In0=
 eyJpbmRleCI6MywidGhyZXNob2xkIjozLCJ0b3RhbCI6NSwiZGF0YSI6IjI2WEpJMExnY0p5VjRyU3p5YmgwQ2RLQUlFVTZwd1dmL05KVTEvcy93ekRHdG4yc0tWcDZ6eHFLTTE2QlYxVEJHaE1VUldqWGpPR2w4azhxejlHWXd2amdjeGxITEs3UFlHSjJkaFVNZDhvZzdaekEwQmZETnIrbElKZkhCQT09In0="
@@ -198,23 +184,23 @@ eyJpbmRleCI6MywidGhyZXNob2xkIjozLCJ0b3RhbCI6NSwiZGF0YSI6IjI2WEpJMExnY0p5VjRyU3p5
 
             <!-- 文件上传Tab -->
             <div class="tab-pane" id="uploadTab">
-              <div class="alert alert-info" data-i18n="uploadInstructions">
-                <strong>Instructions:</strong><br />
-                1. Drag and drop shard files here or click to select files<br />
-                2. Supported formats: .txt (standard shares) and .gpg (encrypted shares)<br />
-                3. You can select multiple files at once<br />
-                4. Files will be processed immediately after upload
+              <div class="alert alert-info">
+                <strong>使用说明：</strong><br />
+                1. 点击"选择文件"按钮上传分片文件<br />
+                2. 支持格式：.txt（标准分片）和 .gpg（加密分片）<br />
+                3. 可以一次选择多个文件<br />
+                4. 文件上传后会立即处理
               </div>
 
-              <!-- 拖拽上传区域 -->
+              <!-- 上传区域 -->
               <div class="upload-area" id="uploadArea">
                 <div class="upload-content">
                   <div class="upload-icon">📁</div>
                   <div class="upload-text">
-                    <p data-i18n="dragDropHint">Drag and drop files here or click to select</p>
-                    <p class="upload-hint" data-i18n="supportedFormats">Supported formats: .txt, .gpg</p>
+                    <p>从本地选择分片文件</p>
+                    <p class="upload-hint">支持格式：.txt, .gpg</p>
                   </div>
-                  <button class="upload-btn" id="selectFilesBtn" data-i18n="selectFiles">Select Files</button>
+                  <button class="upload-btn" id="selectFilesBtn">选择文件</button>
                   <input type="file" id="fileInput" multiple accept=".txt,.gpg" style="display: none" />
                 </div>
               </div>
@@ -222,47 +208,46 @@ eyJpbmRleCI6MywidGhyZXNob2xkIjozLCJ0b3RhbCI6NSwiZGF0YSI6IjI2WEpJMExnY0p5VjRyU3p5
               <!-- 加密文件密码输入区域 -->
               <div class="encryption-password-section" id="encryptionPasswordSection" style="display: none">
                 <div class="encryption-password-header">
-                  <h4 data-i18n="encryptionPasswordTitle">Decryption Password</h4>
-                  <p class="encryption-password-desc" data-i18n="encryptionPasswordDesc">
-                    Enter the password to decrypt your encrypted files (.gpg). All encrypted files will use the same password.
+                  <h4>解密密码</h4>
+                  <p class="encryption-password-desc">
+                    请输入密码以解密您的加密文件(.gpg)。所有加密文件将使用相同的密码。
                   </p>
                 </div>
 
                 <div class="encryption-password-input-group">
-                  <label for="uploadEncryptionPassword" data-i18n="encryption.passwordLabel">Password</label>
+                  <label for="uploadEncryptionPassword">密码</label>
                   <div class="password-input-wrapper">
                     <input
                       type="password"
                       id="uploadEncryptionPassword"
                       class="password-input"
-                      data-i18n-placeholder="encryption.passwordPlaceholder"
-                      placeholder="Enter decryption password"
+                      placeholder="请输入解密密码"
                       autocomplete="new-password"
                     />
-                    <button type="button" class="password-toggle-btn" id="uploadPasswordToggleBtn" title="Toggle password visibility">
-                      <span class="password-toggle-icon">Show</span>
+                    <button type="button" class="password-toggle-btn" id="uploadPasswordToggleBtn" title="切换密码可见性">
+                      <span class="password-toggle-icon">显示</span>
                     </button>
                   </div>
                 </div>
 
                 <div class="encryption-password-actions">
-                  <button class="btn btn-secondary" id="skipDecryptionBtn" data-i18n="skipDecryption">Skip Decryption</button>
-                  <button class="btn btn-primary" id="applyDecryptionBtn" data-i18n="applyDecryption">Apply Decryption</button>
+                  <button class="btn btn-secondary" id="skipDecryptionBtn">跳过解密</button>
+                  <button class="btn btn-primary" id="applyDecryptionBtn">应用解密</button>
                 </div>
               </div>
 
               <!-- 已上传文件列表 -->
               <div class="uploaded-files" id="uploadedFiles" style="display: none">
                 <div class="files-header">
-                  <h4 data-i18n="uploadedFiles">Uploaded Files</h4>
-                  <button class="clear-files-btn" id="clearFilesBtn" data-i18n="clearAllFiles">Clear All</button>
+                  <h4>已上传文件</h4>
+                  <button class="clear-files-btn" id="clearFilesBtn">清空全部</button>
                 </div>
                 <div class="files-list" id="filesList"></div>
               </div>
 
               <!-- 上传状态 -->
               <div class="upload-status" id="uploadStatus">
-                <span class="status-text" data-i18n="waitingForUpload">Waiting for file upload...</span>
+                <span class="status-text">等待文件上传...</span>
               </div>
 
               <!-- 文件上传恢复结果区域 -->
@@ -270,7 +255,7 @@ eyJpbmRleCI6MywidGhyZXNob2xkIjozLCJ0b3RhbCI6NSwiZGF0YSI6IjI2WEpJMExnY0p5VjRyU3p5
             </div>
           </div>
 
-          <button class="action-btn" id="recoverBtn" disabled data-i18n="recoverBtn">Recover Mnemonic</button>
+          <button class="action-btn" id="recoverBtn" disabled>恢复助记词</button>
 
           <div id="recoverResult"></div>
         </div>

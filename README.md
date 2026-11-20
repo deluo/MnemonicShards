@@ -1,283 +1,283 @@
 # MnemonicShards
 
-English | [简体中文](./README_ZH.md)
+一个安全、专业的助记词分片工具，使用 Shamir 秘密分享算法将您的助记词分割成多个分片，并提供可选的 OpenPGP 加密功能以增强安全性。任意指定数量的分片即可恢复原始助记词。
 
-A secure, professional mnemonic phrase splitting tool that uses Shamir's Secret Sharing algorithm to split your mnemonic phrase into multiple shards, with optional OpenPGP encryption for enhanced security. Any specified number of shards can recover the original mnemonic.
+## 🚀 快速开始
 
-## 🚀 Quick Start
-
-### Build the Static File (Recommended)
+### 构建静态文件（推荐）
 ```bash
 git clone <repository-url>
 cd MnemonicShards
-bun install && bun run build
-# dist/index.html is a self-contained single-file offline build - open it in any browser
-open dist/index.html
+npm install && npm run build
+# dist/mnemonic-shards-offline.html 是自包含的单文件离线版，双击即可在任意浏览器中打开
+open dist/mnemonic-shards-offline.html
 ```
 
-### Local Development
+### 本地开发
 ```bash
-# Clone and run locally
+# 克隆并在本地运行
 git clone <repository-url>
 cd MnemonicShards
-bun install && bun run dev
-# Visit http://localhost:5173
+npm install && npm run dev
+# 访问 http://localhost:5173
 ```
 
-### Use the Prebuilt Static File
+### 使用已构建的静态文件
 ```bash
-# Open directly in browser
-open dist/index.html
-# or serve with any static server
-npx http-server dist -p 8080
+# 直接在浏览器中打开
+open dist/mnemonic-shards-offline.html
+# 或使用任意静态服务器
+npm run preview   # 或任意静态文件服务器
 ```
 
-## 🔒 Security Features
+## 🔒 安全特性
 
-- **Completely Offline Operation** - Data never leaves your device
-- **Professional-grade Encryption** - Uses standard Shamir's Secret Sharing algorithm
-- **Client-side Processing** - All computations completed in the browser
-- **Open Source & Transparent** - Code is fully open source and can be audited
+- **完全离线运行** - 数据不会离开您的设备
+- **专业级加密** - 使用标准 Shamir 秘密分享算法
+- **客户端处理** - 所有计算在浏览器中完成
+- **开源透明** - 代码完全开源，可自行审查
 
-## 🚀 Core Features
+## 🚀 核心功能
 
-### Mnemonic Processing
-- ✅ Support for 12/24 word mnemonic phrases
-- ✅ BIP39 standard word validation
-- ✅ Smart auto-complete suggestions
-- ✅ Duplicate word detection
-- ✅ Real-time word count and validation feedback
+### 助记词处理
+- ✅ 支持 12/24 个助记词输入
+- ✅ BIP39 标准单词验证
+- ✅ 智能自动完成建议
+- ✅ 重复单词检测
+- ✅ 实时单词计数和验证反馈
 
-### Shamir Secret Sharing
-- ✅ Flexible shard configuration (3-7 shards)
-- ✅ Custom recovery threshold (2-5 shards)
-- ✅ Professional-grade cryptographic algorithm
-- ✅ Configurable security levels (Conservative to Convenient)
+### Shamir 秘密分享
+- ✅ 灵活的分片配置（3-7 个分片）
+- ✅ 自定义恢复阈值（2-5 个分片）
+- ✅ 专业级密码学算法
+- ✅ 可配置的安全级别（从保守到便捷）
 
-### Security & Encryption
-- ✅ OpenPGP symmetric encryption for shards
-- ✅ AES-256 encryption standard
-- ✅ Secure password generation with strength validation
-- ✅ Encrypted shard storage support
-- ✅ Memory-safe password handling (auto-clear)
+### 安全与加密
+- ✅ 分片 OpenPGP 对称加密
+- ✅ AES-256 加密标准
+- ✅ 安全密码生成及强度验证
+- ✅ 加密分片存储支持
+- ✅ 密码仅用于当次加解密操作，不参与分片存储
 
-### User Interface
-- ✅ One-click copy/download shards
-- ✅ Perfect mobile adaptation and touch support
-- ✅ Tab-based recovery interface (paste/upload tabs)
-- ✅ Enhanced mnemonic recovery display
-- ✅ Modern, responsive design system
-- ✅ Accessibility-focused interface
+### 用户界面
+- ✅ 一键复制/下载分片
+- ✅ 标签式恢复界面（粘贴/上传标签）
+- ✅ 增强的助记词恢复显示
+- ✅ 现代设计系统（桌面布局）
 
-### File Management
-- ✅ File upload recovery (support .txt and .gpg files)
-- ✅ Skip decryption option for mixed file types
-- ✅ Batch file processing
-- ✅ Drag-and-drop file support
-- ✅ File size validation (max 5MB)
+### 文件管理
+- ✅ 文件上传恢复（支持 .txt 和 .gpg 文件）
+- ✅ 跳过解密选项（适用于混合文件类型）
+- ✅ 批量文件处理
+- ✅ 文件大小验证（最大 5MB）
 
-### Deployment Options
-- ✅ Single file deployment (dist/index.html)
-- ✅ Static site hosting compatible
-- ✅ Completely offline operation
+### 部署选项
+- ✅ 单文件部署（dist/mnemonic-shards-offline.html）
+- ✅ 静态站点托管兼容
+- ✅ 完全离线运行
 
-## 🛠️ Technology Stack
+### 产物归档策略（长期可用性保险）
+- `dist/mnemonic-shards-offline.html` **直接纳入 git 仓库**：即使多年后依赖或构建环境失效，仓库中始终保留可直接双击使用的离线工具
+- 提交前强制保障：本机已安装 git pre-commit 钩子，每次提交前自动重新构建并校验产物与源码一致，防止过期产物入库（换新机器 clone 后需重装钩子：`npm install` 后按上面钩子逻辑重建 `.git/hooks/pre-commit`）
+- 常规发布流程：`npm run release`（构建最新产物 + 暂存 dist/）后提交
 
-### Core Dependencies
+## 🛠️ 技术栈
 
-- **[shamir-secret-sharing](https://www.npmjs.com/package/shamir-secret-sharing)** - Professional-grade Shamir's Secret Sharing algorithm implementation
-  - Standard cryptographic algorithm, secure and reliable
-  - Peer-reviewed cryptographic library
-  - Supports flexible threshold configuration
-- **[openpgp](https://www.npmjs.com/package/openpgp)** - OpenPGP implementation for JavaScript
-  - Industry-standard OpenPGP cryptography
-  - AES-256 symmetric encryption
-  - GPG-compatible encrypted output
-  - Secure password-based encryption
+### 核心依赖
 
-### Development Tools
+- **[shamir-secret-sharing](https://www.npmjs.com/package/shamir-secret-sharing)** - 专业级 Shamir 秘密分享算法实现
+  - 标准密码学算法，安全可靠
+  - 经过同行评议的加密库
+  - 支持灵活的阈值配置
+- **[openpgp](https://www.npmjs.com/package/openpgp)** - JavaScript 的 OpenPGP 实现
+  - 行业标准 OpenPGP 密码学
+  - AES-256 对称加密
+  - 与 GPG 兼容的加密输出
+  - 安全的基于密码的加密
 
-- **Vite** - Modern frontend build tool
-- **Native JavaScript** - No framework dependencies, lightweight and efficient
-- **CSS3** - Modern styling and animations
+### 开发工具
 
-## 📁 Project Structure
+- **Vite** - 现代前端构建工具
+- **原生 JavaScript** - 无框架依赖，轻量高效
+- **CSS3** - 现代样式和动画
+
+## 📁 项目结构
 
 ```
 src/
-├── components/              # Core components
-│   ├── MnemonicInput.js     # Mnemonic input component (supports auto-complete, validation, duplicate detection)
-│   ├── ShareManager.js      # Shard management component (handles shard generation and recovery)
-│   ├── RecoveryTabManager.js # Recovery tab manager (handles paste/upload tabs and file processing)
-│   └── PasswordDialog.js    # Password dialog component (handles password input for encryption/decryption)
-├── utils/                   # Utility functions
-│   ├── dom.js              # DOM manipulation utilities (safe element retrieval and creation)
-│   ├── validation.js       # Validation utilities (BIP39 word validation)
-│   ├── encryption.js       # Encryption utilities (OpenPGP encryption/decryption, password validation)
-│   └── helpers.js          # General utilities (copy, download, encoding, etc.)
+├── components/              # 核心组件
+│   ├── MnemonicInput.js     # 助记词输入组件（支持自动完成、验证、重复检测）
+│   ├── ShareManager.js      # 分片管理组件（处理分片生成和恢复）
+│   ├── RecoveryTabManager.js # 恢复标签管理器（处理粘贴/上传标签和文件处理）
+│   └── PasswordDialog.js    # 密码对话框组件（处理加密/解密密码输入）
+├── utils/                   # 工具函数
+│   ├── dom.js              # DOM 操作工具（安全的元素获取和创建）
+│   ├── validation.js       # 验证工具（BIP39单词验证）
+│   ├── encryption.js       # 加密工具（OpenPGP加密/解密、密码验证）
+│   └── helpers.js          # 通用工具（复制、下载、编码等）
 ├── styles/
-│   └── styles.css          # Main stylesheet (modern design system, mobile support)
-├── constants/              # Constants configuration
-│   ├── index.js            # Application constants and configuration
-│   └── bip39-words.js      # BIP39 word list
-└── main.js                 # Application entry point (modular architecture)
+│   └── styles.css          # 主样式文件（现代设计系统）
+├── constants/              # 常量配置
+│   ├── index.js            # 应用常量和配置
+│   └── bip39-words.js      # BIP39 单词列表
+└── main.js                 # 应用入口（模块化架构）
 
-Root directory/
-├── index.html              # Main page
-├── package.json            # Project configuration
-├── vite.config.js          # Build configuration
-└── dist/                   # Build output
-    └── index.html          # Production version (single file deployment)
+根目录/
+├── index.html              # 主页面
+├── package.json            # 项目配置
+├── vite.config.js          # 构建配置
+├── scripts/                # 回归验证脚本
+│   └── verify-bip39.mjs    # 词表/校验和/分片往返测试（npm run verify）
+└── dist/                   # 构建产物（入库归档，见「产物归档策略」）
+    └── index.html          # 生产版本（单文件部署）
 ```
 
-### 🏗️ Architecture Features
+### 🏗️ 架构特点
 
-- **Modular Design** - Clear component separation, easy to maintain and extend
-- **Type Safety** - Complete parameter validation and error handling
-- **Performance Optimization** - Debounced input, smart caching, efficient rendering
-- **Mobile-first** - Perfect mobile adaptation and touch optimization
-- **Framework-free** - Native JavaScript, lightweight and fast
+- **模块化设计** - 清晰的组件分离，易于维护和扩展
+- **类型安全** - 完整的参数验证和错误处理
+- **性能优化** - 防抖输入、智能缓存、高效渲染
+- **无框架依赖** - 原生 JavaScript，轻量且快速
 
-## 🔐 Encryption Features
+## 🔐 加密功能
 
-The tool provides optional OpenPGP encryption to enhance the security of your mnemonic shards:
+本工具提供可选的 OpenPGP 加密功能，以增强助记词分片的安全性：
 
-### Encryption Options
+### 加密选项
 
-- **Symmetric Encryption**: Uses AES-256 algorithm with password-based encryption
-- **GPG Compatibility**: Encrypted output is compatible with standard GPG tools
-- **Password Strength Validation**: Built-in password strength assessment
-- **Secure Password Generation**: Option to generate cryptographically secure passwords
+- **对称加密**：使用 AES-256 算法和基于密码的加密
+- **GPG 兼容性**：加密输出与标准 GPG 工具兼容
+- **密码强度验证**：内置密码强度评估
+- **安全密码生成**：可生成密码学安全的密码
 
-### Encryption Process
+### 加密流程
 
-1. **Password Creation**: Create a strong password or use the built-in generator
-2. **Shard Encryption**: Each shard is encrypted individually using OpenPGP
-3. **Secure Storage**: Encrypted shards can be safely stored even on less secure media
-4. **Decryption**: Original shards are recovered by decrypting with the same password
+1. **密码创建**：创建强密码或使用内置生成器
+2. **分片加密**：每个分片使用 OpenPGP 单独加密
+3. **安全存储**：加密后的分片可以安全地存储在不太安全的介质上
+4. **解密恢复**：使用相同密码解密恢复原始分片
 
-### Password Security
+### 密码安全
 
-- **Minimum Requirements**: At least 8 characters with mixed case, numbers, and special characters
-- **Strength Levels**: Weak, Medium, and Strong indicators with improvement suggestions
-- **Secure Generation**: Cryptographically secure random password generation
-- **Memory Safety**: Passwords are not stored or cached after use
+- **强度校验**：弱密码会被拦截，建议使用 12 位以上、混合大小写字母、数字与特殊字符
+- **强度级别**：弱、中、强指示器及改进建议
+- **安全生成**：密码学安全的随机密码生成
+- **密码不落盘**：密码仅用于当次加解密，不写入任何分片或本地存储
 
-## 🎯 How to Use
+## 🎯 使用方法
 
-### Basic Usage (Without Encryption)
+### 基本使用（不加密）
 
-1. Open the [application page](./index.html)
-2. Select mnemonic word count (12 or 24 words)
-3. Configure total shards and recovery threshold
-4. Enter your mnemonic phrase, the system will automatically validate each word
-5. Click "Generate Shares" to create multiple shards
-6. Save the shards in different secure locations
-7. When recovery is needed, input any specified number of shards
+1. 打开 [应用页面](./index.html)
+2. 选择助记词数量（12 或 24 个单词）
+3. 配置分片总数和恢复阈值
+4. 输入助记词，系统会自动验证每个单词
+5. 点击"生成分片"生成多个分片
+6. 将分片分别保存在不同的安全位置
+7. 需要恢复时，输入任意指定数量的分片即可
 
-### Encrypted Usage (Recommended)
+### 加密使用（推荐）
 
-1. Open the [application page](./index.html)
-2. Select mnemonic word count (12 or 24 words)
-3. Configure total shards and recovery threshold
-4. Enter your mnemonic phrase, the system will automatically validate each word
-5. Enable encryption option and create a strong password
-6. Click "Generate & Encrypt Shares" to create encrypted shards
-7. Save the encrypted shards and password separately in different secure locations
-8. When recovery is needed, input the encrypted shards and password to decrypt and recover
+1. 打开 [应用页面](./index.html)
+2. 选择助记词数量（12 或 24 个单词）
+3. 配置分片总数和恢复阈值
+4. 输入助记词，系统会自动验证每个单词
+5. 启用加密选项并创建强密码
+6. 点击"生成并加密分片"创建加密分片
+7. 将加密分片和密码分别保存在不同的安全位置
+8. 需要恢复时，输入加密分片和密码进行解密恢复
 
-### File Upload Recovery
+### 文件上传恢复
 
-1. Open the [application page](./index.html)
-2. Navigate to the "Recovery Mnemonic" section
-3. Choose the "Upload" tab
-4. Upload your shard files (.txt or .gpg format)
-5. If you have encrypted files (.gpg), enter the decryption password when prompted
-6. Click "Recover Mnemonic" to restore your original mnemonic phrase
-7. The recovered mnemonic will be displayed with clear word separation
+1. 打开 [应用页面](./index.html)
+2. 导航到"恢复助记词"部分
+3. 选择"上传"标签
+4. 上传您的分片文件（.txt 或 .gpg 格式）
+5. 如果您有加密文件（.gpg），在提示时输入解密密码
+6. 点击"恢复助记词"恢复您的原始助记词
+7. 恢复的助记词将以清晰的单词分隔显示
 
-### Mixed Recovery Methods
+### 混合恢复方法
 
-- **Paste Method**: Directly paste shard content into the input fields
-- **Upload Method**: Upload shard files for batch processing
-- **Skip Decryption**: When mixed files are uploaded, you can skip decryption for unencrypted files
+- **粘贴方法**：直接将分片内容粘贴到输入字段中
+- **上传方法**：上传分片文件进行批量处理
+- **跳过解密**：当上传混合文件时，可以跳过未加密文件的解密
 
-### Local Development
+### 本地开发
 
 ```bash
-# Clone the project
+# 克隆项目
 git clone <repository-url>
 cd MnemonicShards
 
-# Install dependencies
-bun install
+# 安装依赖
+npm install
 
-# Start development server
-bun run dev
-# Visit http://localhost:5173
+# 启动开发服务器
+npm run dev
+# 访问 http://localhost:5173
 
-# Build production version
-bun run build
-# View dist/index.html
+# 构建生产版本
+npm run build
+# 查看 dist/mnemonic-shards-offline.html
 
-# Preview production build
-bun run start
-# Visit http://localhost:8080
+# 预览生产构建
+npm run preview
+# 访问 http://localhost:8080
 ```
 
-## 📱 Security Recommendations
+## 📱 安全建议
 
-1. **Use in Offline Environment** - Recommended to use this tool in a disconnected environment
-2. **Distributed Storage** - Store shards in different physical locations
-3. **Secure Media** - Use encrypted USB drives or paper backups
-4. **Regular Verification** - Regularly test the recovery functionality of shards
-5. **Shard Protection** - Do not share shards with untrusted parties
-6. **Password Management** - Store encryption passwords separately from encrypted shards
-7. **Strong Passwords** - Use the built-in password generator or create passwords with high entropy
-8. **Password Separation** - Store passwords in a different location than the encrypted shards
-9. **Memorize Critical Passwords** - Consider memorizing encryption passwords for ultimate security
-10. **Password Backup** - Create secure backups of encryption passwords using different methods
-11. **Prefer Encrypted Shares** - Plaintext (unencrypted) shards may leak structural information about the mnemonic (word count, encoding patterns) when fewer than the threshold number of shards is compromised. Enabling OpenPGP encryption turns shard contents into uniformly random ciphertext and eliminates this risk, while the password layer remains decryptable at any time with standard GPG tools (`gpg --decrypt`)
-12. **Archive an Offline Copy of the Tool** - `dist/index.html` is a single-file offline build that runs recovery with a double-click, no network needed. Archive it alongside your shards so recovery never depends on any online service
+1. **离线环境使用** - 建议在断网环境中使用此工具
+2. **分散存储** - 将分片保存在不同的物理位置
+3. **安全介质** - 使用加密的 USB 驱动器或纸质备份
+4. **定期验证** - 定期测试分片的恢复功能
+5. **分片保护** - 不要将分片分享给不信任的人
+6. **密码管理** - 将加密密码与加密分片分开存储
+7. **强密码** - 使用内置密码生成器或创建高熵密码
+8. **密码分离** - 将密码存储在与加密分片不同的位置
+9. **记忆关键密码** - 考虑记忆加密密码以获得终极安全性
+10. **密码备份** - 使用不同方法为加密密码创建安全备份
+11. **建议开启加密分片** - 未加密（明文）分片在低于阈值数量时可能泄露助记词的结构信息（词数、编码特征）；开启 OpenPGP 加密后分片内容为均匀随机密文，可消除此风险，且密码层可随时用标准 GPG 工具（`gpg --decrypt`）解密
+12. **离线保存一份工具** - `dist/mnemonic-shards-offline.html` 为单文件离线版，断网双击即可运行恢复，建议与分片一起归档，确保不依赖任何在线服务
 
-## 📄 Shard Format Specification (Escape-Hatch Documentation)
+## 📄 分片格式规范（逃生舱文档）
 
-You can recover your mnemonic without this tool — shards are not deeply bound to this project:
+即使不使用本工具，你也可以依据以下公开格式自行实现恢复，分片不会深度绑定本项目：
 
-- Each shard is a Base64 string that decodes to JSON: `{"index": <share number>, "threshold": <recovery threshold>, "total": <total shares>, "data": "<Base64(secret share bytes)>"}`
-- Recovery: take any `threshold` shards → decode the JSON → Base64-decode the `data` field → combine using Shamir's Secret Sharing over GF(2^8) (e.g. the independently audited [shamir-secret-sharing](https://www.npmjs.com/package/shamir-secret-sharing) library) → the result is the UTF-8 encoded mnemonic → validate per the BIP39 standard
-- With encryption enabled, shard files are standard OpenPGP (`.gpg`): first run `gpg --decrypt` to obtain the Base64 string above, then follow the same steps
-- Run `npm run verify` to see a standalone recovery demo that uses zero project code
+- 每份分片是一个 Base64 字符串，解码后为 JSON：`{"index": <分片序号>, "threshold": <恢复阈值>, "total": <总分片数>, "data": "<Base64(秘密分片字节)>"}`
+- 恢复步骤：取任意 `threshold` 份分片 → 解码 JSON → Base64 解码 `data` 字段 → 使用 GF(2^8) 上的 Shamir 秘密分享（如 [shamir-secret-sharing](https://www.npmjs.com/package/shamir-secret-sharing) 库，经独立审计）合并 → 得到 UTF-8 编码的助记词 → 按 BIP39 标准校验
+- 开启加密时分片文件为标准 OpenPGP 格式（`.gpg`），先用 `gpg --decrypt` 解密得到上述 Base64 字符串，再按上述步骤恢复
+- 可运行 `npm run verify` 查看一个不依赖本项目代码的独立恢复演示
 
-## 🔧 Shard Configuration Examples
+## 🔧 分片配置示例
 
-| Configuration | Total Shards | Recovery Threshold | Security   | Convenience |
-| ------------- | ------------ | ------------------ | ---------- | ----------- |
-| Conservative  | 7            | 5                  | ⭐⭐⭐⭐⭐ | ⭐⭐        |
-| Balanced      | 5            | 3                  | ⭐⭐⭐⭐   | ⭐⭐⭐⭐    |
-| Convenient    | 3            | 2                  | ⭐⭐⭐     | ⭐⭐⭐⭐⭐  |
+| 配置 | 总分片数 | 恢复阈值 | 安全性     | 便利性     |
+| ---- | -------- | -------- | ---------- | ---------- |
+| 保守 | 7        | 5        | ⭐⭐⭐⭐⭐ | ⭐⭐       |
+| 平衡 | 5        | 3        | ⭐⭐⭐⭐   | ⭐⭐⭐⭐   |
+| 便捷 | 3        | 2        | ⭐⭐⭐     | ⭐⭐⭐⭐⭐ |
 
-## 🌟 Browser Support
+## 🌟 浏览器支持
 
 - Chrome 88+
 - Firefox 85+
 - Safari 14+
 - Edge 88+
-- Mobile browsers
 
-## ⚠️ Disclaimer
+## ⚠️ 免责声明
 
-This tool is for educational and research purposes only. Users should:
+本工具仅供教育和研究目的使用。用户应：
 
-- Assume all usage risks
-- Ensure understanding of how Shamir's Secret Sharing works
-- Conduct thorough testing before use
-- Properly safeguard generated shards
+- 自行承担使用风险
+- 确保理解 Shamir 秘密分享的工作原理
+- 在使用前进行充分测试
+- 妥善保管生成的分片
 
-## 📄 License
+## 📄 许可证
 
-ISC License
+MIT License
 
 ---
 
-**⚡ MnemonicShards**: Single file deployment, no server requirements, completely client-side operation
+**⚡ MnemonicShards**: 单文件部署，无服务器要求，完全客户端运行

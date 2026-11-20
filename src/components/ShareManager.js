@@ -9,7 +9,6 @@ import { copyToClipboard, downloadFile, formatDateTime, base64Encode, base64ToBy
 import { validateMnemonic, validateShareCollection, validateMnemonicChecksum } from '../utils/validation.js';
 import { BIP39_WORDLIST } from '../constants/bip39-words.js';
 import { SELECTORS, CSS_CLASSES, FILE_TEMPLATES } from '../constants/index.js';
-import { t } from '../utils/i18n.js';
 import { encryptWithPassword, decryptWithPassword, validatePasswordStrength, validatePasswordMatch } from '../utils/encryption.js';
 import { passwordDialog } from './PasswordDialog.js';
 
@@ -111,7 +110,7 @@ export class ShareManager {
     const confirmPassword = getElement(SELECTORS.CONFIRM_PASSWORD);
 
     if (!encryptionPassword || !confirmPassword) {
-      return { isValid: false, error: t('errors.encryptionFieldsMissing') };
+      return { isValid: false, error: '加密字段缺失' };
     }
 
     const password = encryptionPassword.value;
@@ -120,13 +119,13 @@ export class ShareManager {
     // 验证密码强度
     const strengthValidation = validatePasswordStrength(password);
     if (strengthValidation.strength === 'weak') {
-      return { isValid: false, error: t('encryption.weakPassword') };
+      return { isValid: false, error: '密码过于简单，请使用至少8个字符，包含字母、数字和符号的组合' };
     }
 
     // 验证密码匹配
     const matchValidation = validatePasswordMatch(password, confirm);
     if (!matchValidation.isValid) {
-      return { isValid: false, error: t('encryption.passwordMismatch') };
+      return { isValid: false, error: '两次输入的密码不匹配' };
     }
 
     this.encryptionPassword = password;
@@ -156,14 +155,14 @@ export class ShareManager {
       // 验证助记词
       const validation = validateMnemonic(words);
       if (!validation.isValid) {
-        this.showError(t('errors.fillAllWords'));
+        this.showError('请填写所有助记词！');
         return false;
       }
 
       // 验证 BIP39 校验和，防止拼写/顺序错误的助记词被静默分片
       const checksum = await validateMnemonicChecksum(BIP39_WORDLIST, words);
       if (!checksum.isValid) {
-        this.showError(t('errors.checksumFailed'));
+        this.showError('助记词校验和验证失败：单词拼写或顺序可能有误，请逐词核对后再生成分片。');
         return false;
       }
 
@@ -198,10 +197,10 @@ export class ShareManager {
 
       // 显示分片
       this.displayShares();
-      this.showSuccess(t('success.sharesGenerated'));
+      this.showSuccess('分片生成成功！请安全保存这些分片。');
       return true;
     } catch (error) {
-      this.showError(t('errors.generateFailed', error.message));
+      this.showError(`生成分片失败：${error.message}`);
       return false;
     }
   }
@@ -239,7 +238,7 @@ export class ShareManager {
     const header = createElement('div', ['share-header']);
 
     const title = createElement('div', ['share-title']);
-    title.textContent = t('share', index);
+    title.textContent = `分片 ${index}`;
 
     const buttons = createElement('div', ['share-buttons']);
 
@@ -247,16 +246,16 @@ export class ShareManager {
 
     // 检查这个分片是否已经被复制过
     if (this.copiedShares.has(index)) {
-      copyBtn.textContent = t('success.copySuccess');
+      copyBtn.textContent = '已复制到剪贴板！';
       toggleClass(copyBtn, CSS_CLASSES.COPIED, true);
     } else {
-      copyBtn.textContent = t('copy');
+      copyBtn.textContent = '复制';
     }
 
     addEvent(copyBtn, 'click', () => this.copyShare(copyBtn, share, index));
 
     const downloadBtn = createElement('button', ['download-btn']);
-    downloadBtn.textContent = t('download');
+    downloadBtn.textContent = '下载';
     addEvent(downloadBtn, 'click', () => this.downloadShare(share, index));
 
     buttons.appendChild(copyBtn);
@@ -287,10 +286,10 @@ export class ShareManager {
       // 永久标记这个分片为已复制
       this.copiedShares.add(shareIndex);
 
-      button.textContent = t('success.copySuccess');
+      button.textContent = '已复制到剪贴板！';
       toggleClass(button, CSS_CLASSES.COPIED, true);
     } else {
-      this.showError(t('errors.copyFailed'));
+      this.showError('复制到剪贴板失败');
     }
   }
 
@@ -318,7 +317,7 @@ export class ShareManager {
         this.downloadStandardShare(shareContent, shareIndex);
       }
     } catch (error) {
-      this.showError(t('errors.downloadFailed') + ': ' + error.message);
+      this.showError('下载失败，请重试' + ': ' + error.message);
     }
   }
 
@@ -330,7 +329,7 @@ export class ShareManager {
   async downloadEncryptedShare(shareContent, shareIndex) {
     try {
       // 显示加密进度提示
-      this.showInfo(t('encryption.encryptingShare', shareIndex));
+      this.showInfo(`正在加密分片 ${shareIndex}...`);
 
       // 对分片内容进行加密
       const encryptedContent = await encryptWithPassword(shareContent, this.encryptionPassword);
@@ -339,20 +338,20 @@ export class ShareManager {
       this.clearEncryptionPassword();
 
       // 使用.txt.gpg扩展名
-      const filename = `${t('shareFilePrefix')}${shareIndex}.txt.gpg`;
+      const filename = `分片${shareIndex}.txt.gpg`;
 
       // 加密分片保存为纯GPG格式，不添加额外文本
       const success = downloadFile(encryptedContent, filename);
 
       if (success) {
-        this.showSuccess(t('success.encryptedShareDownloaded', shareIndex));
+        this.showSuccess(`加密分片 ${shareIndex} 已下载`);
       } else {
-        this.showError(t('errors.downloadFailed'));
+        this.showError('下载失败，请重试');
       }
     } catch (error) {
       // 即使出错也要清除密码
       this.clearEncryptionPassword();
-      throw new Error(t('encryption.encryptionFailed') + ': ' + error.message);
+      throw new Error('加密失败：' + error.message);
     }
   }
 
@@ -364,7 +363,7 @@ export class ShareManager {
   downloadStandardShare(shareContent, shareIndex) {
     // 使用.txt扩展名
     const fileExtension = 'txt';
-    const filename = `${t('shareFilePrefix')}${shareIndex}.${fileExtension}`;
+    const filename = `分片${shareIndex}.${fileExtension}`;
 
     // 使用标准格式，包含应用信息和安全提示
     const fileData = FILE_TEMPLATES.SHARE_CONTENT(shareIndex, shareContent);
@@ -372,9 +371,9 @@ export class ShareManager {
 
     const success = downloadFile(fileContent, filename);
     if (success) {
-      this.showSuccess(t('success.shareDownloaded', shareIndex));
+      this.showSuccess(`分片 ${shareIndex} 已下载`);
     } else {
-      this.showError(t('errors.downloadFailed'));
+      this.showError('下载失败，请重试');
     }
   }
 
@@ -384,11 +383,9 @@ export class ShareManager {
    * @returns {string} 格式化后的文件内容
    */
   formatShareFileContent(fileData) {
-    let content = `${t('fileTemplate.appName')} ${t('share', fileData.index)}\n${'='.repeat(50)}\n\n`;
+    let content = `MnemonicShards 分片 ${fileData.index}\n${'='.repeat(50)}\n\n`;
 
-    content += `${t('fileTemplate.shareContent')}:\n${fileData.content}\n\n${'='.repeat(50)}\n${t('fileTemplate.generatedTime')}: ${fileData.timestamp}\n\n${t(
-      'fileTemplate.securityTips',
-    )}:\n- ${t('fileTemplate.tip1')}\n- ${t('fileTemplate.tip2')}\n- ${t('fileTemplate.tip3')}`;
+    content += `分片内容:\n${fileData.content}\n\n${'='.repeat(50)}\n生成时间: ${fileData.timestamp}\n\n安全提示:\n- 请将此文件保存在安全的位置\n- 不要将分片分享给不信任的人\n- 任意指定数量的分片即可恢复原始助记词`;
 
     return content;
   }
@@ -422,22 +419,21 @@ export class ShareManager {
   getRecoveryValidationMessage(check) {
     switch (check.reason) {
       case 'count':
-        return t('errors.recoveredInvalidLength', check.count);
+        return `恢复失败：还原结果为 ${check.count} 个单词，不是有效的 BIP39 助记词长度。`;
       case 'word':
-        return t('errors.recoveredInvalidWord', check.word);
+        return `恢复失败：还原结果包含不在 BIP39 词表中的单词："${check.word}"。`;
       case 'checksum':
       default:
-        return t('errors.recoveredChecksumFailed');
+        return '恢复失败：还原结果未通过 BIP39 校验和验证。分片可能已损坏、抄录有误或不属于同一组助记词。';
     }
   }
 
   /**
    * 使用自定义分片数据恢复助记词
    * @param {Array} shares - 分片数据数组
-   * @param {string} encryptionPassword - 加密密码（已弃用，现在使用弹框获取）
    * @returns {Promise<boolean>} 是否恢复成功
    */
-  async recoverMnemonicWithShares(shares, encryptionPassword) {
+  async recoverMnemonicWithShares(shares) {
     const resultDiv = getElement(SELECTORS.RECOVER_RESULT);
     const recoverBtn = getElement(SELECTORS.RECOVER_BTN);
 
@@ -446,13 +442,13 @@ export class ShareManager {
     }
 
     if (!shares || shares.length === 0) {
-      this.showError(t('errors.fillAllWords'));
+      this.showError('请填写所有助记词！');
       return false;
     }
 
     // 显示处理状态
     recoverBtn.disabled = true;
-    recoverBtn.textContent = t('info.recovering');
+    recoverBtn.textContent = '正在恢复...';
 
     try {
       // 检查是否可能是加密分片
@@ -503,10 +499,10 @@ export class ShareManager {
           password = await this.getPasswordFromDialog(isRetry);
         } catch (error) {
           // 用户取消了密码输入
-          throw new Error(t('encryption.passwordRequired'));
+          throw new Error('解密需要密码');
         }
 
-        this.showInfo(t('encryption.decryptingShares'));
+        this.showInfo('正在解密分片...');
 
         const encryptedShares = validShareData.filter((share) => share.encrypted);
         const decryptedShares = [];
@@ -536,7 +532,7 @@ export class ShareManager {
                 }
               } catch (retryError) {
                 if (retryError.message.includes('密码错误')) {
-                  throw new Error(t('encryption.invalidPassword'));
+                  throw new Error('密码无效，请检查后重试');
                 }
                 // 其他解密错误，继续尝试下一个分片
               }
@@ -550,13 +546,13 @@ export class ShareManager {
 
         // 如果解密后仍然没有有效分片
         if (finalShares.length === 0) {
-          throw new Error(t('encryption.decryptionFailed') + t('errors.noValidShares'));
+          throw new Error('解密失败：' + '没有找到有效的分片数据');
         }
 
         // 使用解密后的分片继续处理
         const threshold = finalShares[0].threshold;
         if (finalShares.length < threshold) {
-          throw new Error(t('errors.insufficientShares', threshold, finalShares.length));
+          throw new Error(`分片数量不足。至少需要 ${threshold} 个分片，但只提供了 ${finalShares.length} 个。`);
         }
 
         const recoveredMnemonic = await this.recoverFromShareData(finalShares.slice(0, threshold));
@@ -566,13 +562,13 @@ export class ShareManager {
       }
 
       if (validShareData.length === 0) {
-        throw new Error(t('errors.noValidShares'));
+        throw new Error('没有找到有效的分片数据');
       }
 
       const threshold = validShareData[0].threshold;
 
       if (validShareData.length < threshold) {
-        throw new Error(t('errors.insufficientShares', threshold, validShareData.length));
+        throw new Error(`分片数量不足。至少需要 ${threshold} 个分片，但只提供了 ${validShareData.length} 个。`);
       }
 
       const recoveredMnemonic = await this.recoverFromShareData(validShareData.slice(0, threshold));
@@ -585,7 +581,7 @@ export class ShareManager {
     } finally {
       // 恢复按钮状态
       recoverBtn.disabled = false;
-      recoverBtn.textContent = t('recoverBtn');
+      recoverBtn.textContent = '恢复助记词';
       // 清理密码
       this.clearUploadEncryptionPassword();
     }
@@ -622,12 +618,12 @@ export class ShareManager {
     alertDiv.className = 'alert alert-success';
 
     const titleStrong = document.createElement('strong');
-    titleStrong.textContent = t('success.recoverySuccess');
+    titleStrong.textContent = '恢复成功！';
     alertDiv.appendChild(titleStrong);
     alertDiv.appendChild(document.createElement('br'));
 
     const mnemonicLabel = document.createElement('strong');
-    mnemonicLabel.textContent = `${t('mnemonic')}：`;
+    mnemonicLabel.textContent = '助记词：';
     alertDiv.appendChild(mnemonicLabel);
     alertDiv.appendChild(document.createElement('br'));
 
@@ -649,13 +645,13 @@ export class ShareManager {
     alertDiv.appendChild(document.createElement('br'));
 
     const sharesLabel = document.createElement('strong');
-    sharesLabel.textContent = `${t('sharesUsed')}：`;
+    sharesLabel.textContent = '使用分片数：';
     alertDiv.appendChild(sharesLabel);
-    alertDiv.appendChild(document.createTextNode(`${usedShares} ${t('shares')}（${t('need')} ${threshold} ${t('shares')}）`));
+    alertDiv.appendChild(document.createTextNode(`${usedShares} 个（需要 ${threshold} 个）`));
     alertDiv.appendChild(document.createElement('br'));
 
     const timeLabel = document.createElement('strong');
-    timeLabel.textContent = `${t('recoveryTime')}：`;
+    timeLabel.textContent = '恢复时间：';
     alertDiv.appendChild(timeLabel);
     alertDiv.appendChild(document.createTextNode(formatDateTime()));
 
@@ -690,7 +686,7 @@ export class ShareManager {
     alertDiv.className = 'alert alert-error';
 
     const strongElement = document.createElement('strong');
-    strongElement.textContent = t('errors.recoveryFailed');
+    strongElement.textContent = '恢复失败：';
     alertDiv.appendChild(strongElement);
 
     const errorTextSpan = document.createElement('span');
@@ -700,7 +696,7 @@ export class ShareManager {
     alertDiv.appendChild(document.createElement('br'));
 
     const smallElement = document.createElement('small');
-    smallElement.textContent = t('errors.checkShareFormat');
+    smallElement.textContent = '请检查分片格式是否正确，确保每行一个完整的分片';
     alertDiv.appendChild(smallElement);
 
     resultDiv.appendChild(alertDiv);

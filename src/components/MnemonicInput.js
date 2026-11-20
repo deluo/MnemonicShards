@@ -5,23 +5,15 @@
 
 import { getElement, createElement, toggleElement, toggleClass, addEvent, clearElement } from '../utils/dom.js';
 import { isValidBIP39Word } from '../utils/validation.js';
-import { debounce, isMobile } from '../utils/helpers.js';
+import { debounce } from '../utils/helpers.js';
 import { BIP39_WORDLIST } from '../constants/bip39-words.js';
 import { UI_CONFIG, SELECTORS, CSS_CLASSES } from '../constants/index.js';
-import { t } from '../utils/i18n.js';
 
 export class MnemonicInput {
   constructor(wordCount = 12) {
     this.wordCount = wordCount;
     this.autocompleteTimeouts = new Map();
     this.suggestionCache = new Map();
-
-    // 监听语言变化
-    import('../utils/i18n.js').then(({ i18n }) => {
-      i18n.addListener(() => {
-        this.renderInputs();
-      });
-    });
   }
 
   /**
@@ -87,7 +79,7 @@ export class MnemonicInput {
     const label = createElement('label', [], {
       for: `word${index}`,
     });
-    label.textContent = t('wordLabel', index);
+    label.textContent = `${index}. 单词`;
 
     const suggestionsDiv = createElement('div', ['autocomplete-suggestions'], {
       id: `suggestions${index}`,
@@ -185,7 +177,7 @@ export class MnemonicInput {
   showInvalidWordError(index) {
     const errorAlert = getElement(SELECTORS.INPUT_ERROR_ALERT);
     if (errorAlert) {
-      errorAlert.textContent = t('errors.invalidWord', index);
+      errorAlert.textContent = `第 ${index} 个单词不是有效的 BIP39 单词，请从建议列表中选择有效的单词。`;
       toggleElement(errorAlert, true);
 
       setTimeout(() => {
@@ -248,40 +240,21 @@ export class MnemonicInput {
     const input = getElement(SELECTORS.WORD_INPUT(wordIndex));
     if (!input) return;
 
-    const mobile = isMobile();
+    // 绝对定位于输入框下方，靠近右侧边缘时右对齐避免溢出
+    const containerRect = input.closest('.words-grid').getBoundingClientRect();
+    const inputRect = input.getBoundingClientRect();
+    const inputRelativeLeft = inputRect.left - containerRect.left;
+    const containerWidth = containerRect.width;
+    const isNearRightEdge = inputRelativeLeft > containerWidth * 0.6;
 
-    if (mobile) {
-      // 移动端固定定位
-      Object.assign(suggestionsDiv.style, {
-        position: 'fixed',
-        top: 'auto',
-        bottom: UI_CONFIG.SUGGESTIONS.MOBILE_BOTTOM_OFFSET,
-        left: '10px',
-        right: '10px',
-        width: 'calc(100% - 20px)',
-        zIndex: '99999',
-        background: 'rgba(0, 0, 0, 0.95)',
-        padding: '12px',
-        borderRadius: '12px',
-        textAlign: 'center',
-      });
-    } else {
-      // 桌面端绝对定位
-      const containerRect = input.closest('.words-grid').getBoundingClientRect();
-      const inputRect = input.getBoundingClientRect();
-      const inputRelativeLeft = inputRect.left - containerRect.left;
-      const containerWidth = containerRect.width;
-      const isNearRightEdge = inputRelativeLeft > containerWidth * 0.6;
-
-      Object.assign(suggestionsDiv.style, {
-        position: 'absolute',
-        top: '100%',
-        zIndex: '99999',
-        background: 'transparent',
-        padding: '8px 0 0 0',
-        textAlign: isNearRightEdge ? 'right' : 'left',
-      });
-    }
+    Object.assign(suggestionsDiv.style, {
+      position: 'absolute',
+      top: '100%',
+      zIndex: '99999',
+      background: 'transparent',
+      padding: '8px 0 0 0',
+      textAlign: isNearRightEdge ? 'right' : 'left',
+    });
   }
 
   /**
@@ -292,38 +265,25 @@ export class MnemonicInput {
    */
   renderSuggestionItems(container, suggestions, wordIndex) {
     const suggestionsContainer = createElement('div', ['suggestions-container']);
-    const mobile = isMobile();
 
-    if (mobile) {
-      Object.assign(suggestionsContainer.style, {
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: '8px',
-        justifyContent: 'center',
-        maxHeight: UI_CONFIG.SUGGESTIONS.MOBILE_MAX_HEIGHT,
-        overflowY: 'auto',
-        webkitOverflowScrolling: 'touch',
-      });
-    } else {
-      // 检查输入框是否位于右侧
-      const input = getElement(SELECTORS.WORD_INPUT(wordIndex));
-      const containerRect = input.closest('.words-grid').getBoundingClientRect();
-      const inputRect = input.getBoundingClientRect();
-      const inputRelativeLeft = inputRect.left - containerRect.left;
-      const containerWidth = containerRect.width;
-      const isNearRightEdge = inputRelativeLeft > containerWidth * 0.6;
+    // 检查输入框是否位于右侧
+    const input = getElement(SELECTORS.WORD_INPUT(wordIndex));
+    const containerRect = input.closest('.words-grid').getBoundingClientRect();
+    const inputRect = input.getBoundingClientRect();
+    const inputRelativeLeft = inputRect.left - containerRect.left;
+    const containerWidth = containerRect.width;
+    const isNearRightEdge = inputRelativeLeft > containerWidth * 0.6;
 
-      Object.assign(suggestionsContainer.style, {
-        display: 'flex',
-        gap: '6px',
-        justifyContent: isNearRightEdge ? 'flex-end' : 'flex-start',
-        flexWrap: 'nowrap',
-        alignItems: 'center',
-      });
-    }
+    Object.assign(suggestionsContainer.style, {
+      display: 'flex',
+      gap: '6px',
+      justifyContent: isNearRightEdge ? 'flex-end' : 'flex-start',
+      flexWrap: 'nowrap',
+      alignItems: 'center',
+    });
 
     suggestions.forEach((word) => {
-      const suggestionItem = this.createSuggestionItem(word, wordIndex, mobile);
+      const suggestionItem = this.createSuggestionItem(word, wordIndex);
       suggestionsContainer.appendChild(suggestionItem);
     });
 
@@ -334,25 +294,13 @@ export class MnemonicInput {
    * 创建建议项
    * @param {string} word - 单词
    * @param {number} wordIndex - 输入框索引
-   * @param {boolean} mobile - 是否为移动端
    * @returns {Element} 建议项元素
    */
-  createSuggestionItem(word, wordIndex, mobile) {
+  createSuggestionItem(word, wordIndex) {
     const item = createElement('div', ['suggestion-item']);
     item.textContent = word;
 
-    const mobileStyles = {
-      fontSize: '14px',
-      padding: '8px 14px',
-      background: '#6fa8dc',
-      color: 'white',
-      borderRadius: '20px',
-      border: '1px solid rgba(255, 255, 255, 0.2)',
-      userSelect: 'none',
-      webkitUserSelect: 'none',
-    };
-
-    const desktopStyles = {
+    Object.assign(item.style, {
       padding: '6px 12px',
       fontSize: '0.85rem',
       whiteSpace: 'nowrap',
@@ -361,9 +309,7 @@ export class MnemonicInput {
       fontWeight: '500',
       borderRadius: '6px',
       background: '#6fa8dc',
-    };
-
-    Object.assign(item.style, mobile ? mobileStyles : desktopStyles);
+    });
 
     addEvent(item, 'click', () => this.selectWord(word, wordIndex));
 
@@ -451,7 +397,7 @@ export class MnemonicInput {
     if (duplicates.size > 0) {
       // 创建安全的DOM结构，防止XSS攻击
       const strongTitle = document.createElement('strong');
-      strongTitle.textContent = t('warnings.duplicateWordsDetected');
+      strongTitle.textContent = '检测到重复单词：';
       duplicateAlert.appendChild(strongTitle);
 
       duplicateAlert.appendChild(document.createElement('br'));
@@ -461,14 +407,14 @@ export class MnemonicInput {
         strongWord.textContent = word;
         duplicateAlert.appendChild(strongWord);
 
-        const positionText = document.createTextNode(`: ${t('position')} ${positions.join(', ')}`);
+        const positionText = document.createTextNode(`：位置 ${positions.join(', ')}`);
         duplicateAlert.appendChild(positionText);
 
         duplicateAlert.appendChild(document.createElement('br'));
       }
 
       const smallNote = document.createElement('small');
-      smallNote.textContent = t('warnings.uniqueWordsNote');
+      smallNote.textContent = 'BIP39 助记词允许出现重复单词，此提示仅用于提醒您核对输入是否正确。';
       duplicateAlert.appendChild(smallNote);
 
       toggleElement(duplicateAlert, true);
