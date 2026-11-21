@@ -3,29 +3,12 @@
  */
 
 /**
- * 安全获取DOM元素
+ * 获取DOM元素
  * @param {string} selector - CSS选择器
- * @returns {Element|null} DOM元素或null
+ * @returns {Element|null} DOM元素
  */
 export function getElement(selector) {
-  try {
-    return document.querySelector(selector);
-  } catch (error) {
-    return null;
-  }
-}
-
-/**
- * 安全获取多个DOM元素
- * @param {string} selector - CSS选择器
- * @returns {NodeList} DOM元素列表
- */
-export function getElements(selector) {
-  try {
-    return document.querySelectorAll(selector);
-  } catch (error) {
-    return [];
-  }
+  return document.querySelector(selector);
 }
 
 /**
@@ -39,7 +22,7 @@ export function createElement(tagName, classNames = [], attributes = {}) {
   const element = document.createElement(tagName);
 
   if (classNames.length > 0) {
-    element.className = classNames.join(' ');
+    element.className = classNames.filter(Boolean).join(' ');
   }
 
   Object.entries(attributes).forEach(([key, value]) => {
@@ -65,25 +48,14 @@ export function toggleElement(element, show) {
  * 添加/移除CSS类
  * @param {Element|string} element - DOM元素或选择器
  * @param {string} className - 类名
- * @param {boolean} add - 是否添加类
+ * @param {boolean} [add] - 是否添加类（缺省时在添加与移除间切换）
+ * @returns {boolean} 切换后元素是否包含该类
  */
 export function toggleClass(element, className, add) {
   const el = typeof element === 'string' ? getElement(element) : element;
-  if (!el) return;
+  if (!el) return false;
 
-  el.classList.toggle(className, add);
-}
-
-/**
- * 设置元素内容
- * @param {Element|string} element - DOM元素或选择器
- * @param {string} content - HTML内容
- */
-export function setHTML(element, content) {
-  const el = typeof element === 'string' ? getElement(element) : element;
-  if (!el) return;
-
-  el.innerHTML = content;
+  return el.classList.toggle(className, add);
 }
 
 /**
@@ -103,7 +75,10 @@ export function setText(element, text) {
  * @param {Element|string} element - DOM元素或选择器
  */
 export function clearElement(element) {
-  setHTML(element, '');
+  const el = typeof element === 'string' ? getElement(element) : element;
+  if (!el) return;
+
+  el.textContent = '';
 }
 
 /**
@@ -118,17 +93,4 @@ export function addEvent(element, event, handler, options = {}) {
   if (!el) return;
 
   el.addEventListener(event, handler, options);
-}
-
-/**
- * 为元素移除事件监听器
- * @param {Element|string} element - DOM元素或选择器
- * @param {string} event - 事件名
- * @param {Function} handler - 事件处理函数
- */
-export function removeEvent(element, event, handler) {
-  const el = typeof element === 'string' ? getElement(element) : element;
-  if (!el) return;
-
-  el.removeEventListener(event, handler);
 }

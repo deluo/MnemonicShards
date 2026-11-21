@@ -1,23 +1,35 @@
 /**
  * MnemonicShards - 主应用文件
- * 重构后的主文件，使用组件化架构提高可维护性
+ * 组件化入口：分割 / 恢复 / 全局擦除
  */
 
 import { MnemonicInput } from './components/MnemonicInput.js';
 import { ShareManager } from './components/ShareManager.js';
 import { RecoveryTabManager } from './components/RecoveryTabManager.js';
-import { getElement, addEvent, toggleClass } from './utils/dom.js';
-import { MNEMONIC_CONFIG, SELECTORS, CSS_CLASSES } from './constants/index.js';
+import { ShardVisualizer } from './components/ShardVisualizer.js';
+import { Toast } from './components/Toast.js';
+import { getElement, addEvent, toggleClass, setText } from './utils/dom.js';
+import { MNEMONIC_CONFIG, SELECTORS, CSS_CLASSES, APP_CONFIG } from './constants/index.js';
 
 /**
  * 主应用类
  */
 class MnemonicSplitApp {
   constructor() {
-    this.mnemonicInput = new MnemonicInput(MNEMONIC_CONFIG.DEFAULT_WORD_COUNT);
-    this.shareManager = new ShareManager();
+    this.mnemonicInput = new MnemonicInput(MNEMONIC_CONFIG.DEFAULT_WORD_COUNT, {
+      // 粘贴 12/24 词助记词时自动切换输入模式
+      onWordCountAutoSwitch: (count) => this.setWordCount(count),
+    });
+    this.shareManager = new ShareManager({
+      // 助记词相关的校验错误展示在输入状态条上
+      onWordError: (message) => this.mnemonicInput.setStatusbar('error', message),
+    });
     this.recoveryTabManager = new RecoveryTabManager();
     this.currentWordCount = MNEMONIC_CONFIG.DEFAULT_WORD_COUNT;
+    this.wipeDisarmTimer = null;
+
+    // 恢复结果"擦除"时同步清理恢复侧输入
+    this.shareManager.onWipeRecovery = () => this.recoveryTabManager.clearAll();
 
     this.init();
   }
@@ -28,7 +40,9 @@ class MnemonicSplitApp {
   init() {
     this.setupEventListeners();
     this.updateThresholdOptions();
-    this.setInitialState();
+    this.updateWordCountButtons();
+    this.mnemonicInput.renderInputs(); // 初始化输入框
+    setText(getElement(SELECTORS.VERSION_LABEL), `v${APP_CONFIG.VERSION}`);
     this.shareManager.initEncryptionListeners();
   }
 
@@ -36,46 +50,44 @@ class MnemonicSplitApp {
    * 设置事件监听器
    */
   setupEventListeners() {
-    // 助记词数量切换
-    const words12Btn = getElement('#words12');
-    const words24Btn = getElement('#words24');
+    // 顶部模式切换
+    addEvent(getElement(SELECTORS.MODE_SPLIT_BTN), 'click', () => this.switchMode('split'));
+    addEvent(getElement(SELECTORS.MODE_RECOVER_BTN), 'click', () => this.switchMode('recover'));
 
-    if (words12Btn) {
-      addEvent(words12Btn, 'click', () => this.setWordCount(12));
-    }
-    if (words24Btn) {
-      addEvent(words24Btn, 'click', () => this.setWordCount(24));
-    }
+    // 助记词数量切换
+    addEvent(getElement(SELECTORS.WORDS_12_BTN), 'click', () => this.setWordCount(12));
+    addEvent(getElement(SELECTORS.WORDS_24_BTN), 'click', () => this.setWordCount(24));
 
     // 分片配置变更
-    const totalSharesSelect = getElement(SELECTORS.TOTAL_SHARES);
-    if (totalSharesSelect) {
-      addEvent(totalSharesSelect, 'change', () => this.updateThresholdOptions());
-    }
+    addEvent(getElement(SELECTORS.TOTAL_SHARES), 'change', () => this.updateThresholdOptions());
 
     // 生成分片按钮
-    const generateBtn = getElement(SELECTORS.GENERATE_BTN);
-    if (generateBtn) {
-      addEvent(generateBtn, 'click', () => this.handleGenerateShares());
-    }
+    addEvent(getElement(SELECTORS.GENERATE_BTN), 'click', () => this.handleGenerateShares());
 
     // 恢复功能 - 由 RecoveryTabManager 处理输入，此处绑定恢复按钮
-    const recoverBtn = getElement(SELECTORS.RECOVER_BTN);
-    if (recoverBtn) {
-      addEvent(recoverBtn, 'click', () => this.handleRecoverMnemonic());
-    }
+    addEvent(getElement(SELECTORS.RECOVER_BTN), 'click', () => this.handleRecoverMnemonic());
+
+    // 擦除所有数据（两段式确认）
+    addEvent(getElement(SELECTORS.WIPE_ALL_BTN), 'click', (e) => this.handleWipeAll(e.currentTarget));
 
     // 键盘快捷键
     addEvent(document, 'keydown', (e) => this.handleKeyboardShortcuts(e));
   }
 
   /**
-   * 设置初始状态
+   * 切换顶部模式（分割 / 恢复）
+   * @param {string} mode - 'split' | 'recover'
    */
-  setInitialState() {
-    this.updateWordCountButtons();
-    this.mnemonicInput.renderInputs(); // 初始化输入框
-    this.shareManager.hideAllAlerts();
+  switchMode(mode) {
+    const isSplit = mode === 'split';
+
+    toggleClass(getElement(SELECTORS.MODE_SPLIT_BTN), CSS_CLASSES.ACTIVE, isSplit);
+    toggleClass(getElement(SELECTORS.MODE_RECOVER_BTN), CSS_CLASSES.ACTIVE, !isSplit);
+    getElement(SELECTORS.MODE_SPLIT_BTN).setAttribute('aria-pressed', String(isSplit));
+    getElement(SELECTORS.MODE_RECOVER_BTN).setAttribute('aria-pressed', String(!isSplit));
+
+    toggleClass(getElement(SELECTORS.MODE_SPLIT), CSS_CLASSES.ACTIVE, isSplit);
+    toggleClass(getElement(SELECTORS.MODE_RECOVER), CSS_CLASSES.ACTIVE, !isSplit);
   }
 
   /**
@@ -90,33 +102,22 @@ class MnemonicSplitApp {
     this.currentWordCount = count;
     this.mnemonicInput.setWordCount(count);
     this.updateWordCountButtons();
-    this.shareManager.hideAllAlerts();
   }
 
   /**
    * 更新助记词数量按钮状态
    */
   updateWordCountButtons() {
-    const words12Btn = getElement('#words12');
-    const words24Btn = getElement('#words24');
-
-    if (words12Btn) {
-      toggleClass(words12Btn, CSS_CLASSES.ACTIVE, this.currentWordCount === 12);
-    }
-    if (words24Btn) {
-      toggleClass(words24Btn, CSS_CLASSES.ACTIVE, this.currentWordCount === 24);
-    }
+    toggleClass(getElement(SELECTORS.WORDS_12_BTN), CSS_CLASSES.ACTIVE, this.currentWordCount === 12);
+    toggleClass(getElement(SELECTORS.WORDS_24_BTN), CSS_CLASSES.ACTIVE, this.currentWordCount === 24);
   }
 
   /**
-   * 更新阈值选项
+   * 更新阈值选项并刷新分片可视化
    */
   updateThresholdOptions() {
     const totalSharesSelect = getElement(SELECTORS.TOTAL_SHARES);
     const thresholdSelect = getElement(SELECTORS.THRESHOLD);
-
-    if (!totalSharesSelect || !thresholdSelect) return;
-
     const totalShares = parseInt(totalSharesSelect.value);
     const currentThreshold = parseInt(thresholdSelect.value);
 
@@ -133,6 +134,12 @@ class MnemonicSplitApp {
 
       thresholdSelect.appendChild(option);
     }
+
+    // 刷新 k-of-n 分片可视化
+    ShardVisualizer.render(getElement(SELECTORS.SHARD_VIZ), {
+      total: totalShares,
+      threshold: parseInt(thresholdSelect.value),
+    });
   }
 
   /**
@@ -143,9 +150,9 @@ class MnemonicSplitApp {
 
     if (!validation.isValid) {
       if (validation.hasEmpty) {
-        this.shareManager.showError('请填写所有助记词！');
-      } else if (validation.hasInvalidWord) {
-        this.shareManager.showError(`第 ${validation.invalidWordIndex} 个单词不是有效的 BIP39 单词，请从建议列表中选择有效的单词。`);
+        this.mnemonicInput.setStatusbar('error', '请填写所有助记词！');
+      } else {
+        this.mnemonicInput.setStatusbar('error', `第 ${validation.invalidWordIndex} 个单词不是有效的 BIP39 单词，请修正后再生成分片`);
         this.focusInvalidInput(validation.invalidWordIndex);
       }
       return;
@@ -154,10 +161,20 @@ class MnemonicSplitApp {
     const totalShares = parseInt(getElement(SELECTORS.TOTAL_SHARES).value);
     const threshold = parseInt(getElement(SELECTORS.THRESHOLD).value);
 
-    const success = await this.shareManager.generateShares(validation.words, totalShares, threshold);
+    // 生成涉及校验和与 Shamir 计算，期间锁定按钮避免重复提交
+    const generateBtn = getElement(SELECTORS.GENERATE_BTN);
+    generateBtn.disabled = true;
+    generateBtn.textContent = '正在生成...';
 
-    if (success) {
-      this.scrollToResult();
+    try {
+      const success = await this.shareManager.generateShares(validation.words, totalShares, threshold);
+
+      if (success) {
+        this.scrollToResult('generate');
+      }
+    } finally {
+      generateBtn.disabled = false;
+      generateBtn.textContent = '生成分片';
     }
   }
 
@@ -165,38 +182,42 @@ class MnemonicSplitApp {
    * 处理恢复助记词
    */
   async handleRecoverMnemonic() {
-    try {
-      // 获取当前分片数据
-      const shares = this.recoveryTabManager.getCurrentShares();
+    const success = await this.shareManager.recoverMnemonicWithShares(this.recoveryTabManager.getCurrentShares());
 
-      if (shares.length === 0) {
-        this.shareManager.showError('没有找到有效的分片数据');
-        return;
-      }
-
-      // 显示处理状态
-      const recoverBtn = getElement(SELECTORS.RECOVER_BTN);
-      if (recoverBtn) {
-        recoverBtn.disabled = true;
-        recoverBtn.textContent = '正在恢复...';
-      }
-
-      // 调用ShareManager的恢复方法
-      const success = await this.shareManager.recoverMnemonicWithShares(shares);
-
-      if (success) {
-        this.scrollToResult();
-      }
-    } catch (error) {
-      this.shareManager.showError('恢复失败：' + error.message);
-    } finally {
-      // 恢复按钮状态
-      const recoverBtn = getElement(SELECTORS.RECOVER_BTN);
-      if (recoverBtn) {
-        recoverBtn.disabled = false;
-        recoverBtn.textContent = '恢复助记词';
-      }
+    if (success) {
+      this.scrollToResult('recover');
     }
+  }
+
+  /**
+   * 擦除所有输入与结果数据（两段式确认，避免误触）
+   * @param {Element} button - 擦除按钮
+   */
+  handleWipeAll(button) {
+    if (button.dataset.armed === 'true') {
+      this.mnemonicInput.clearAll();
+      this.shareManager.clearResults();
+      this.recoveryTabManager.clearAll();
+      Toast.info('已擦除所有输入与结果数据');
+      this.disarmWipeButton(button);
+      return;
+    }
+
+    // 进入待确认状态，3 秒后自动复原
+    button.dataset.armed = 'true';
+    button.textContent = '确认擦除？';
+    this.wipeDisarmTimer = setTimeout(() => this.disarmWipeButton(button), 3000);
+  }
+
+  /**
+   * 复原擦除按钮状态
+   * @param {Element} button - 擦除按钮
+   */
+  disarmWipeButton(button) {
+    clearTimeout(this.wipeDisarmTimer);
+    this.wipeDisarmTimer = null;
+    delete button.dataset.armed;
+    button.textContent = '擦除所有数据';
   }
 
   /**
@@ -205,18 +226,22 @@ class MnemonicSplitApp {
    */
   focusInvalidInput(index) {
     const input = getElement(SELECTORS.WORD_INPUT(index));
-    if (input) {
-      toggleClass(input, CSS_CLASSES.INVALID_WORD, true);
-      input.focus();
-    }
+    toggleClass(input, CSS_CLASSES.INVALID_WORD, true);
+    input.focus();
   }
 
   /**
    * 滚动到结果区域
+   * @param {string} target - 'generate' 生成分片结果 | 'recover' 恢复结果
    */
-  scrollToResult() {
-    const resultDiv = getElement(SELECTORS.SHARES_RESULT) || getElement(SELECTORS.RECOVER_RESULT);
-    if (resultDiv) {
+  scrollToResult(target) {
+    // 恢复结果渲染在当前活动 Tab 的结果区域内
+    const resultDiv =
+      target === 'recover'
+        ? getElement('.tab-pane.active .recover-result-section')
+        : getElement(SELECTORS.SHARES_RESULT);
+
+    if (resultDiv && resultDiv.children.length > 0) {
       resultDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   }
@@ -231,81 +256,23 @@ class MnemonicSplitApp {
       e.preventDefault();
 
       const recoverInput = getElement(SELECTORS.RECOVER_INPUT);
-      const isActiveInRecover = recoverInput && document.activeElement === recoverInput;
-
-      if (isActiveInRecover && !getElement(SELECTORS.RECOVER_BTN).disabled) {
-        this.handleRecoverMnemonic();
-      } else if (!isActiveInRecover) {
+      if (document.activeElement === recoverInput) {
+        if (!getElement(SELECTORS.RECOVER_BTN).disabled) {
+          this.handleRecoverMnemonic();
+        }
+      } else {
         this.handleGenerateShares();
       }
     }
 
-    // ESC 清除所有提示
+    // ESC 关闭所有 Toast
     if (e.key === 'Escape') {
-      this.shareManager.hideAllAlerts();
+      Toast.dismissAll();
     }
   }
-
-  /**
-   * 销毁应用，清理资源
-   */
-  destroy() {
-    this.mnemonicInput.destroy();
-    this.shareManager.destroy();
-    if (this.recoveryTabManager) {
-      this.recoveryTabManager.destroy();
-    }
-  }
-}
-
-// 创建全局应用实例
-let app;
-
-/**
- * 初始化应用
- */
-function initApp() {
-  try {
-    app = new MnemonicSplitApp();
-  } catch (error) {
-    // 初始化失败必须可见，静默吞错会让用户面对一个无响应的页面
-    console.error('应用初始化失败:', error);
-  }
-}
-
-/**
- * index.html 内联事件处理器需要的全局函数
- * （仅绑定页面实际使用的：setWordCount / generateShares / validateShares）
- */
-function bindGlobalFunctions() {
-  window.setWordCount = (count) => {
-    if (app) {
-      app.setWordCount(count);
-    }
-  };
-
-  window.generateShares = () => {
-    if (app) {
-      app.handleGenerateShares();
-    }
-  };
-
-  window.validateShares = () => {
-    if (app && app.recoveryTabManager) {
-      app.recoveryTabManager.validateCurrentTab();
-    }
-  };
 }
 
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', () => {
-  initApp();
-  bindGlobalFunctions();
-});
-
-// 页面卸载时清理资源
-window.addEventListener('beforeunload', () => {
-  if (app) {
-    app.destroy();
-  }
+  new MnemonicSplitApp();
 });

@@ -74,35 +74,35 @@ const vectorDupBad = [...vectorDup];
 vectorDupBad[11] = 'ability'; // 只改最后一个词 → 校验和不匹配
 
 {
-  const r = await validateMnemonicChecksum(BIP39_WORDLIST, vector12);
+  const r = await validateMnemonicChecksum(vector12);
   check('12 词全零熵向量（abandon×11 + about）通过', r.isValid === true, JSON.stringify(r));
 }
 {
-  const r = await validateMnemonicChecksum(BIP39_WORDLIST, vector24);
+  const r = await validateMnemonicChecksum(vector24);
   check('24 词全零熵向量（abandon×23 + art）通过', r.isValid === true, JSON.stringify(r));
 }
 {
-  const r = await validateMnemonicChecksum(BIP39_WORDLIST, vectorDup);
+  const r = await validateMnemonicChecksum(vectorDup);
   check('含重复单词的合法向量通过（重复词不阻断）', r.isValid === true, JSON.stringify(r));
 }
 {
-  const r = await validateMnemonicChecksum(BIP39_WORDLIST, [...vector12.slice(0, 11), 'abandon']);
+  const r = await validateMnemonicChecksum([...vector12.slice(0, 11), 'abandon']);
   check('篡改最后一个词被校验和拒绝', r.isValid === false && r.reason === 'checksum', JSON.stringify(r));
 }
 {
-  const r = await validateMnemonicChecksum(BIP39_WORDLIST, vectorDupBad);
+  const r = await validateMnemonicChecksum(vectorDupBad);
   check('含重复向量篡改一词被拒绝', r.isValid === false && r.reason === 'checksum', JSON.stringify(r));
 }
 {
-  const r = await validateMnemonicChecksum(BIP39_WORDLIST, [...vector12.slice(0, 11), 'both']);
+  const r = await validateMnemonicChecksum([...vector12.slice(0, 11), 'both']);
   check('非 BIP39 假词（both）被拒绝并定位到词', r.isValid === false && r.reason === 'word' && r.word === 'both', JSON.stringify(r));
 }
 {
-  const r = await validateMnemonicChecksum(BIP39_WORDLIST, vector12.concat(['zone']));
+  const r = await validateMnemonicChecksum(vector12.concat(['zone']));
   check('13 个单词被拒绝（长度非法）', r.isValid === false && r.reason === 'count', JSON.stringify(r));
 }
 {
-  const r = await validateMnemonicChecksum(BIP39_WORDLIST, []);
+  const r = await validateMnemonicChecksum([]);
   check('空输入被拒绝', r.isValid === false && r.reason === 'count', JSON.stringify(r));
 }
 
@@ -132,7 +132,7 @@ let roundTripLines = [];
   check('任意 3 个分片可恢复原助记词', mnemonic === vectorDup.join(' '));
 
   // 恢复关卡：恢复结果重新做校验和验证
-  const r = await validateMnemonicChecksum(BIP39_WORDLIST, mnemonic.trim().split(/\s+/));
+  const r = await validateMnemonicChecksum(mnemonic.trim().split(/\s+/));
   check('恢复结果通过校验和验证', r.isValid === true);
 }
 
@@ -146,7 +146,7 @@ console.log('\n[5] 恶意载荷拦截（XSS 防御链）');
   check('载荷分片在库层面确实可还原出 HTML', mnemonic === payload);
 
   // 应用在展示前会走 recoverFromShareData 的校验关卡：这里验证同一关卡必然拦截
-  const r = await validateMnemonicChecksum(BIP39_WORDLIST, mnemonic.trim().split(/\s+/));
+  const r = await validateMnemonicChecksum(mnemonic.trim().split(/\s+/));
   check('校验和关卡拦截 HTML 载荷（不会进入展示路径）', r.isValid === false);
 }
 

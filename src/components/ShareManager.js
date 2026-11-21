@@ -1,25 +1,32 @@
 /**
  * 分片管理组件
  * 负责分片生成、显示、复制和下载功能
+ * 瞬态消息统一走 Toast；恢复结果内联展示并带复制/隐藏/擦除保护
  */
 
 import { split, combine } from 'shamir-secret-sharing';
-import { getElement, createElement, toggleElement, toggleClass, setText, clearElement, addEvent } from '../utils/dom.js';
-import { copyToClipboard, downloadFile, formatDateTime, base64Encode, base64ToBytes } from '../utils/helpers.js';
-import { validateMnemonic, validateShareCollection, validateMnemonicChecksum } from '../utils/validation.js';
-import { BIP39_WORDLIST } from '../constants/bip39-words.js';
-import { SELECTORS, CSS_CLASSES, FILE_TEMPLATES } from '../constants/index.js';
+import { getElement, createElement, toggleElement, toggleClass, clearElement, addEvent } from '../utils/dom.js';
+import { copyToClipboard, downloadFile, formatDateTime, base64ToBytes } from '../utils/helpers.js';
+import { validateMnemonicChecksum } from '../utils/validation.js';
 import { encryptWithPassword, decryptWithPassword, validatePasswordStrength, validatePasswordMatch } from '../utils/encryption.js';
-import { passwordDialog } from './PasswordDialog.js';
+import { SELECTORS, CSS_CLASSES } from '../constants/index.js';
+import { Toast } from './Toast.js';
+import { ShardVisualizer } from './ShardVisualizer.js';
 
 export class ShareManager {
-  constructor() {
+  /**
+   * @param {Object} [options]
+   * @param {Function} [options.onWordError] - 助记词相关的校验错误回调（展示在输入状态条上）
+   */
+  constructor(options = {}) {
+    this.onWordError = options.onWordError;
+    this.onWipeRecovery = null; // 由 main 注入：恢复结果擦除时清理恢复侧输入
     this.currentShares = [];
     this.currentThreshold = 0;
     this.copiedShares = new Set(); // 跟踪已复制的分片索引
+    this.downloadedShares = new Set(); // 跟踪已下载的分片索引
     this.isEncryptionEnabled = false; // 加密是否启用
     this.encryptionPassword = ''; // 加密密码
-    this.encryptedShares = []; // 加密后的分片
   }
 
   /**
@@ -28,12 +35,6 @@ export class ShareManager {
   initEncryptionListeners() {
     const enableEncryptionCheckbox = getElement(SELECTORS.ENABLE_ENCRYPTION);
     const encryptionFields = getElement(SELECTORS.ENCRYPTION_FIELDS);
-    const encryptionPassword = getElement(SELECTORS.ENCRYPTION_PASSWORD);
-    const confirmPassword = getElement(SELECTORS.CONFIRM_PASSWORD);
-    const passwordStrength = getElement(SELECTORS.PASSWORD_STRENGTH);
-    const passwordMatch = getElement(SELECTORS.PASSWORD_MATCH);
-
-    if (!enableEncryptionCheckbox || !encryptionFields) return;
 
     // 加密选项切换
     addEvent(enableEncryptionCheckbox, 'change', () => {
@@ -42,51 +43,44 @@ export class ShareManager {
 
       // 如果禁用加密，清空密码字段
       if (!this.isEncryptionEnabled) {
-        if (encryptionPassword) encryptionPassword.value = '';
-        if (confirmPassword) confirmPassword.value = '';
-        if (passwordStrength) passwordStrength.textContent = '';
-        if (passwordMatch) passwordMatch.textContent = '';
-        this.encryptionPassword = '';
+        this.clearEncryptionFields();
       }
+
+      // 结果已展示时同步卡片徽章与复制按钮的可用性
+      this.refreshSharesView();
     });
 
     // 密码强度验证
-    if (encryptionPassword && passwordStrength) {
-      addEvent(encryptionPassword, 'input', () => {
-        const password = encryptionPassword.value;
-        if (password) {
-          const validation = validatePasswordStrength(password);
-          passwordStrength.textContent = validation.message;
-          passwordStrength.className = `password-strength ${validation.strength}`;
-        } else {
-          passwordStrength.textContent = '';
-        }
+    const encryptionPassword = getElement(SELECTORS.ENCRYPTION_PASSWORD);
+    const passwordStrength = getElement(SELECTORS.PASSWORD_STRENGTH);
+    addEvent(encryptionPassword, 'input', () => {
+      const password = encryptionPassword.value;
+      if (password) {
+        const validation = validatePasswordStrength(password);
+        passwordStrength.textContent = validation.message;
+        passwordStrength.className = `password-strength ${validation.strength}`;
+      } else {
+        passwordStrength.textContent = '';
+      }
 
-        // 检查密码匹配
-        this.checkPasswordMatch();
-      });
-    }
+      // 检查密码匹配
+      this.checkPasswordMatch();
+    });
 
     // 确认密码验证
-    if (confirmPassword && passwordMatch) {
-      addEvent(confirmPassword, 'input', () => {
-        this.checkPasswordMatch();
-      });
-    }
+    const confirmPassword = getElement(SELECTORS.CONFIRM_PASSWORD);
+    addEvent(confirmPassword, 'input', () => {
+      this.checkPasswordMatch();
+    });
   }
 
   /**
    * 检查密码匹配
    */
   checkPasswordMatch() {
-    const encryptionPassword = getElement(SELECTORS.ENCRYPTION_PASSWORD);
-    const confirmPassword = getElement(SELECTORS.CONFIRM_PASSWORD);
+    const password = getElement(SELECTORS.ENCRYPTION_PASSWORD).value;
+    const confirm = getElement(SELECTORS.CONFIRM_PASSWORD).value;
     const passwordMatch = getElement(SELECTORS.PASSWORD_MATCH);
-
-    if (!encryptionPassword || !confirmPassword || !passwordMatch) return;
-
-    const password = encryptionPassword.value;
-    const confirm = confirmPassword.value;
 
     if (confirm) {
       const validation = validatePasswordMatch(password, confirm);
@@ -106,15 +100,8 @@ export class ShareManager {
       return { isValid: true };
     }
 
-    const encryptionPassword = getElement(SELECTORS.ENCRYPTION_PASSWORD);
-    const confirmPassword = getElement(SELECTORS.CONFIRM_PASSWORD);
-
-    if (!encryptionPassword || !confirmPassword) {
-      return { isValid: false, error: '加密字段缺失' };
-    }
-
-    const password = encryptionPassword.value;
-    const confirm = confirmPassword.value;
+    const password = getElement(SELECTORS.ENCRYPTION_PASSWORD).value;
+    const confirm = getElement(SELECTORS.CONFIRM_PASSWORD).value;
 
     // 验证密码强度
     const strengthValidation = validatePasswordStrength(password);
@@ -133,43 +120,43 @@ export class ShareManager {
   }
 
   /**
-   * 清除加密密码（安全清理）
+   * 清空导出侧的密码输入与反馈
+   */
+  clearEncryptionFields() {
+    getElement(SELECTORS.ENCRYPTION_PASSWORD).value = '';
+    getElement(SELECTORS.CONFIRM_PASSWORD).value = '';
+    getElement(SELECTORS.PASSWORD_STRENGTH).textContent = '';
+    getElement(SELECTORS.PASSWORD_MATCH).textContent = '';
+    this.encryptionPassword = '';
+  }
+
+  /**
+   * 清除内存中的加密密码（安全清理）
    */
   clearEncryptionPassword() {
     this.encryptionPassword = '';
   }
 
-  clearUploadEncryptionPassword() {
-    this.uploadEncryptionPassword = '';
-  }
-
   /**
    * 生成分片
-   * @param {string[]} words - 助记词数组
+   * @param {string[]} words - 助记词数组（调用方已完成逐词校验）
    * @param {number} totalShares - 总分片数
    * @param {number} threshold - 恢复所需分片数
    * @returns {Promise<boolean>} 是否生成成功
    */
   async generateShares(words, totalShares, threshold) {
     try {
-      // 验证助记词
-      const validation = validateMnemonic(words);
-      if (!validation.isValid) {
-        this.showError('请填写所有助记词！');
-        return false;
-      }
-
       // 验证 BIP39 校验和，防止拼写/顺序错误的助记词被静默分片
-      const checksum = await validateMnemonicChecksum(BIP39_WORDLIST, words);
+      const checksum = await validateMnemonicChecksum(words);
       if (!checksum.isValid) {
-        this.showError('助记词校验和验证失败：单词拼写或顺序可能有误，请逐词核对后再生成分片。');
+        this.onWordError?.('助记词校验和验证失败：单词拼写或顺序可能有误，请逐词核对后再生成分片。');
         return false;
       }
 
       // 验证加密设置
       const encryptionValidation = this.validateEncryptionSettings();
       if (!encryptionValidation.isValid) {
-        this.showError(encryptionValidation.error);
+        Toast.error(encryptionValidation.error);
         return false;
       }
 
@@ -190,17 +177,17 @@ export class ShareManager {
       });
 
       this.currentThreshold = threshold;
-      this.encryptedShares = []; // 重置加密分片数组
 
       // 重置复制状态
       this.copiedShares.clear();
+      this.downloadedShares.clear();
 
       // 显示分片
       this.displayShares();
-      this.showSuccess('分片生成成功！请安全保存这些分片。');
+      Toast.success('分片生成成功！请安全保存这些分片。');
       return true;
     } catch (error) {
-      this.showError(`生成分片失败：${error.message}`);
+      Toast.error(`生成分片失败：${error.message}`);
       return false;
     }
   }
@@ -211,11 +198,7 @@ export class ShareManager {
   displayShares() {
     const resultDiv = getElement(SELECTORS.SHARES_RESULT);
     const sharesList = getElement(SELECTORS.SHARES_LIST);
-    const thresholdDisplay = getElement(SELECTORS.THRESHOLD_DISPLAY);
 
-    if (!resultDiv || !sharesList || !thresholdDisplay) return;
-
-    thresholdDisplay.textContent = this.currentThreshold;
     clearElement(sharesList);
 
     this.currentShares.forEach((share, index) => {
@@ -224,6 +207,27 @@ export class ShareManager {
     });
 
     toggleElement(resultDiv, true);
+    this.updateSummary();
+  }
+
+  /**
+   * 加密开关变化后同步已展示的分片卡片
+   */
+  refreshSharesView() {
+    const resultDiv = getElement(SELECTORS.SHARES_RESULT);
+    if (this.currentShares.length === 0 || resultDiv.style.display === 'none') return;
+
+    this.displayShares();
+  }
+
+  /**
+   * 更新分片汇总行
+   */
+  updateSummary() {
+    getElement(SELECTORS.COPIED_COUNT).textContent = String(this.copiedShares.size);
+    getElement(SELECTORS.DOWNLOADED_COUNT).textContent = String(this.downloadedShares.size);
+    getElement(SELECTORS.TOTAL_COUNT).textContent = String(this.currentShares.length);
+    getElement(SELECTORS.THRESHOLD_DISPLAY).textContent = String(this.currentThreshold);
   }
 
   /**
@@ -233,42 +237,67 @@ export class ShareManager {
    * @returns {Element} 分片项元素
    */
   createShareItem(share, index) {
+    const total = this.currentShares.length;
     const shareItem = createElement('div', ['share-item']);
 
     const header = createElement('div', ['share-header']);
 
+    const titleGroup = createElement('div', ['share-title-group']);
+    titleGroup.appendChild(ShardVisualizer.mini(index, total));
+
     const title = createElement('div', ['share-title']);
     title.textContent = `分片 ${index}`;
+    titleGroup.appendChild(title);
+
+    // 加密模式：显示锁徽章，且不提供复制入口（避免"以为复制的是密文实际是明文"的陷阱）
+    if (this.isEncryptionEnabled) {
+      const badge = createElement('span', ['share-badge']);
+      badge.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg>';
+      badge.appendChild(document.createTextNode('已加密'));
+      titleGroup.appendChild(badge);
+    }
 
     const buttons = createElement('div', ['share-buttons']);
 
-    const copyBtn = createElement('button', ['copy-btn']);
+    if (!this.isEncryptionEnabled) {
+      const copyBtn = createElement('button', ['copy-btn', 'btn-sm'], { type: 'button' });
 
-    // 检查这个分片是否已经被复制过
-    if (this.copiedShares.has(index)) {
-      copyBtn.textContent = '已复制到剪贴板！';
-      toggleClass(copyBtn, CSS_CLASSES.COPIED, true);
-    } else {
-      copyBtn.textContent = '复制';
+      // 检查这个分片是否已经被复制过
+      if (this.copiedShares.has(index)) {
+        copyBtn.textContent = '已复制';
+        toggleClass(copyBtn, CSS_CLASSES.COPIED, true);
+      } else {
+        copyBtn.textContent = '复制';
+      }
+
+      addEvent(copyBtn, 'click', () => this.copyShare(copyBtn, share, index));
+      buttons.appendChild(copyBtn);
     }
 
-    addEvent(copyBtn, 'click', () => this.copyShare(copyBtn, share, index));
-
-    const downloadBtn = createElement('button', ['download-btn']);
-    downloadBtn.textContent = '下载';
-    addEvent(downloadBtn, 'click', () => this.downloadShare(share, index));
-
-    buttons.appendChild(copyBtn);
+    const downloadBtn = createElement('button', ['download-btn', 'btn-sm'], { type: 'button' });
+    downloadBtn.textContent = this.downloadedShares.has(index) ? '已下载' : '下载';
+    addEvent(downloadBtn, 'click', () => this.downloadShare(share, index, downloadBtn));
     buttons.appendChild(downloadBtn);
 
-    header.appendChild(title);
+    header.appendChild(titleGroup);
     header.appendChild(buttons);
 
-    const content = createElement('div', ['share-content']);
+    const content = createElement('div', ['share-content', 'is-collapsed']);
     content.textContent = share;
+    content.title = '点击展开或收起';
 
-    shareItem.appendChild(header);
-    shareItem.appendChild(content);
+    const expandBtn = createElement('button', ['text-btn', 'share-expand'], { type: 'button' });
+    expandBtn.textContent = '展开完整内容';
+
+    const toggleCollapse = () => {
+      const collapsed = toggleClass(content, 'is-collapsed');
+      expandBtn.textContent = collapsed ? '展开完整内容' : '收起';
+    };
+
+    addEvent(content, 'click', toggleCollapse);
+    addEvent(expandBtn, 'click', toggleCollapse);
+
+    shareItem.append(header, content, expandBtn);
 
     return shareItem;
   }
@@ -286,10 +315,11 @@ export class ShareManager {
       // 永久标记这个分片为已复制
       this.copiedShares.add(shareIndex);
 
-      button.textContent = '已复制到剪贴板！';
+      button.textContent = '已复制';
       toggleClass(button, CSS_CLASSES.COPIED, true);
+      this.updateSummary();
     } else {
-      this.showError('复制到剪贴板失败');
+      Toast.error('复制到剪贴板失败');
     }
   }
 
@@ -297,27 +327,29 @@ export class ShareManager {
    * 下载分片
    * @param {string} shareContent - 分片内容
    * @param {number} shareIndex - 分片索引
+   * @param {Element} button - 下载按钮
    */
-  async downloadShare(shareContent, shareIndex) {
+  async downloadShare(shareContent, shareIndex, button) {
     try {
-      // 检查是否启用了加密选项
-      const encryptionValidation = this.validateEncryptionSettings();
-
-      // 如果启用了加密但验证失败，显示错误信息
-      if (this.isEncryptionEnabled && !encryptionValidation.isValid) {
-        this.showError(encryptionValidation.error);
-        return;
+      let success;
+      if (this.isEncryptionEnabled) {
+        const encryptionValidation = this.validateEncryptionSettings();
+        if (!encryptionValidation.isValid) {
+          Toast.error(encryptionValidation.error);
+          return;
+        }
+        success = await this.downloadEncryptedShare(shareContent, shareIndex);
+      } else {
+        success = this.downloadStandardShare(shareContent, shareIndex);
       }
 
-      if (this.isEncryptionEnabled && encryptionValidation.isValid) {
-        // 加密模式：下载加密分片
-        await this.downloadEncryptedShare(shareContent, shareIndex);
-      } else {
-        // 非加密模式：下载标准分片
-        this.downloadStandardShare(shareContent, shareIndex);
+      if (success) {
+        this.downloadedShares.add(shareIndex);
+        button.textContent = '已下载';
+        this.updateSummary();
       }
     } catch (error) {
-      this.showError('下载失败，请重试' + ': ' + error.message);
+      Toast.error('下载失败，请重试：' + error.message);
     }
   }
 
@@ -325,33 +357,25 @@ export class ShareManager {
    * 下载加密分片
    * @param {string} shareContent - 分片内容
    * @param {number} shareIndex - 分片索引
+   * @returns {Promise<boolean>} 是否下载成功
    */
   async downloadEncryptedShare(shareContent, shareIndex) {
+    Toast.info(`正在加密分片 ${shareIndex}...`);
+
     try {
-      // 显示加密进度提示
-      this.showInfo(`正在加密分片 ${shareIndex}...`);
-
-      // 对分片内容进行加密
       const encryptedContent = await encryptWithPassword(shareContent, this.encryptionPassword);
-
-      // 加密完成后立即清除密码
-      this.clearEncryptionPassword();
-
-      // 使用.txt.gpg扩展名
-      const filename = `分片${shareIndex}.txt.gpg`;
-
-      // 加密分片保存为纯GPG格式，不添加额外文本
-      const success = downloadFile(encryptedContent, filename);
+      const success = downloadFile(encryptedContent, `分片${shareIndex}.txt.gpg`);
 
       if (success) {
-        this.showSuccess(`加密分片 ${shareIndex} 已下载`);
+        Toast.success(`加密分片 ${shareIndex} 已下载`);
       } else {
-        this.showError('下载失败，请重试');
+        Toast.error('下载失败，请重试');
       }
-    } catch (error) {
-      // 即使出错也要清除密码
+
+      return success;
+    } finally {
+      // 加密结束后立即清除内存中的密码
       this.clearEncryptionPassword();
-      throw new Error('加密失败：' + error.message);
     }
   }
 
@@ -359,35 +383,34 @@ export class ShareManager {
    * 下载标准分片
    * @param {string} shareContent - 分片内容
    * @param {number} shareIndex - 分片索引
+   * @returns {boolean} 是否下载成功
    */
   downloadStandardShare(shareContent, shareIndex) {
-    // 使用.txt扩展名
-    const fileExtension = 'txt';
-    const filename = `分片${shareIndex}.${fileExtension}`;
+    // 标准格式，包含应用信息和安全提示
+    const fileContent = [
+      `MnemonicShards 分片 ${shareIndex}`,
+      '='.repeat(50),
+      '',
+      '分片内容:',
+      shareContent,
+      '',
+      '='.repeat(50),
+      `生成时间: ${formatDateTime()}`,
+      '',
+      '安全提示:',
+      '- 请将此文件保存在安全的位置',
+      '- 不要将分片分享给不信任的人',
+      '- 任意指定数量的分片即可恢复原始助记词',
+    ].join('\n');
 
-    // 使用标准格式，包含应用信息和安全提示
-    const fileData = FILE_TEMPLATES.SHARE_CONTENT(shareIndex, shareContent);
-    const fileContent = this.formatShareFileContent(fileData);
-
-    const success = downloadFile(fileContent, filename);
+    const success = downloadFile(fileContent, `分片${shareIndex}.txt`);
     if (success) {
-      this.showSuccess(`分片 ${shareIndex} 已下载`);
+      Toast.success(`分片 ${shareIndex} 已下载`);
     } else {
-      this.showError('下载失败，请重试');
+      Toast.error('下载失败，请重试');
     }
-  }
 
-  /**
-   * 格式化分片文件内容
-   * @param {Object} fileData - 文件数据
-   * @returns {string} 格式化后的文件内容
-   */
-  formatShareFileContent(fileData) {
-    let content = `MnemonicShards 分片 ${fileData.index}\n${'='.repeat(50)}\n\n`;
-
-    content += `分片内容:\n${fileData.content}\n\n${'='.repeat(50)}\n生成时间: ${fileData.timestamp}\n\n安全提示:\n- 请将此文件保存在安全的位置\n- 不要将分片分享给不信任的人\n- 任意指定数量的分片即可恢复原始助记词`;
-
-    return content;
+    return success;
   }
 
   /**
@@ -403,7 +426,7 @@ export class ShareManager {
     const mnemonic = new TextDecoder().decode(await combine(dataShares));
 
     const words = mnemonic.trim().split(/\s+/).filter(Boolean);
-    const check = await validateMnemonicChecksum(BIP39_WORDLIST, words);
+    const check = await validateMnemonicChecksum(words);
     if (!check.isValid) {
       throw new Error(this.getRecoveryValidationMessage(check));
     }
@@ -420,8 +443,16 @@ export class ShareManager {
     switch (check.reason) {
       case 'count':
         return `恢复失败：还原结果为 ${check.count} 个单词，不是有效的 BIP39 助记词长度。`;
-      case 'word':
-        return `恢复失败：还原结果包含不在 BIP39 词表中的单词："${check.word}"。`;
+      case 'word': {
+        // 分片损坏时还原结果可能是二进制乱码，过滤不可见字符并截断后再回显
+        const raw = String(check.word ?? '');
+        const visible = raw.replace(/[^\u0020-\u007E\u00A0-\u00FF]/g, '');
+        if (!visible) {
+          return '恢复失败：还原结果包含无法识别的内容，分片可能已损坏或不属于同一组分片。';
+        }
+        const shown = visible.length > 32 ? `${visible.slice(0, 32)}…` : visible;
+        return `恢复失败：还原结果包含不在 BIP39 词表中的单词："${shown}"。`;
+      }
       case 'checksum':
       default:
         return '恢复失败：还原结果未通过 BIP39 校验和验证。分片可能已损坏、抄录有误或不属于同一组助记词。';
@@ -429,206 +460,71 @@ export class ShareManager {
   }
 
   /**
-   * 使用自定义分片数据恢复助记词
-   * @param {Array} shares - 分片数据数组
+   * 统一设置恢复按钮忙碌状态
+   * @param {boolean} busy - 是否忙碌
+   */
+  setRecoverBtnBusy(busy) {
+    const recoverBtn = getElement(SELECTORS.RECOVER_BTN);
+
+    recoverBtn.disabled = busy;
+    recoverBtn.textContent = busy ? '正在恢复...' : '恢复助记词';
+  }
+
+  /**
+   * 使用分片数据恢复助记词
+   * @param {Object[]} shares - 已解析的分片对象数组
    * @returns {Promise<boolean>} 是否恢复成功
    */
   async recoverMnemonicWithShares(shares) {
-    const resultDiv = getElement(SELECTORS.RECOVER_RESULT);
-    const recoverBtn = getElement(SELECTORS.RECOVER_BTN);
-
-    if (!resultDiv || !recoverBtn) {
-      return false;
-    }
-
-    if (!shares || shares.length === 0) {
-      this.showError('请填写所有助记词！');
-      return false;
-    }
-
-    // 显示处理状态
-    recoverBtn.disabled = true;
-    recoverBtn.textContent = '正在恢复...';
+    this.setRecoverBtnBusy(true);
 
     try {
-      // 检查是否可能是加密分片
-      let isEncrypted = false;
-      const validShareData = [];
+      const shareDataList = shares.filter((s) => s?.threshold && s.index !== undefined && s.data);
 
-      for (const share of shares) {
-        if (share.encrypted) {
-          isEncrypted = true;
-          // 对于加密分片，直接添加到有效列表，让解密逻辑处理
-          validShareData.push(share);
-          continue;
-        }
-
-        try {
-          // 如果是字符串，尝试解析
-          if (typeof share === 'string') {
-            // 检查是否是GPG格式
-            if (share.startsWith('-----BEGIN PGP MESSAGE-----')) {
-              isEncrypted = true;
-              validShareData.push({ encrypted: true, content: share });
-              continue;
-            }
-
-            const shareData = JSON.parse(atob(share));
-            if (shareData.threshold && shareData.index && shareData.data) {
-              validShareData.push(shareData);
-            }
-          } else if (share.threshold && share.index && share.data) {
-            // 如果已经是对象格式
-            validShareData.push(share);
-          }
-        } catch (e) {
-          // 解析失败，可能是加密分片
-          isEncrypted = true;
-          // 尝试作为加密分片处理
-          validShareData.push({ encrypted: true, content: share });
-        }
-      }
-
-      // 如果有加密分片，尝试解密
-      if (isEncrypted) {
-        let password = '';
-        let isRetry = false;
-
-        // 使用对话框获取密码
-        try {
-          password = await this.getPasswordFromDialog(isRetry);
-        } catch (error) {
-          // 用户取消了密码输入
-          throw new Error('解密需要密码');
-        }
-
-        this.showInfo('正在解密分片...');
-
-        const encryptedShares = validShareData.filter((share) => share.encrypted);
-        const decryptedShares = [];
-        let decryptionSuccess = false;
-
-        for (const encryptedShare of encryptedShares) {
-          try {
-            const decryptedShare = await decryptWithPassword(encryptedShare.content, password);
-            const shareData = JSON.parse(atob(decryptedShare));
-            if (shareData.threshold && shareData.index && shareData.data) {
-              decryptedShares.push(shareData);
-              decryptionSuccess = true;
-            }
-          } catch (e) {
-            // 解密失败，可能是密码错误
-            if (e.message.includes('密码错误')) {
-              // 如果是密码错误，尝试重试
-              isRetry = true;
-              try {
-                password = await this.getPasswordFromDialog(isRetry);
-                // 重试解密当前分片
-                const decryptedShare = await decryptWithPassword(encryptedShare.content, password);
-                const shareData = JSON.parse(atob(decryptedShare));
-                if (shareData.threshold && shareData.index && shareData.data) {
-                  decryptedShares.push(shareData);
-                  decryptionSuccess = true;
-                }
-              } catch (retryError) {
-                if (retryError.message.includes('密码错误')) {
-                  throw new Error('密码无效，请检查后重试');
-                }
-                // 其他解密错误，继续尝试下一个分片
-              }
-            }
-            // 其他解密错误，继续尝试下一个分片
-          }
-        }
-
-        // 替换加密分片为解密后的分片
-        const finalShares = validShareData.filter((share) => !share.encrypted).concat(decryptedShares);
-
-        // 如果解密后仍然没有有效分片
-        if (finalShares.length === 0) {
-          throw new Error('解密失败：' + '没有找到有效的分片数据');
-        }
-
-        // 使用解密后的分片继续处理
-        const threshold = finalShares[0].threshold;
-        if (finalShares.length < threshold) {
-          throw new Error(`分片数量不足。至少需要 ${threshold} 个分片，但只提供了 ${finalShares.length} 个。`);
-        }
-
-        const recoveredMnemonic = await this.recoverFromShareData(finalShares.slice(0, threshold));
-
-        this.displayRecoverResult(recoveredMnemonic, finalShares.length, threshold);
-        return true;
-      }
-
-      if (validShareData.length === 0) {
+      if (shareDataList.length === 0) {
         throw new Error('没有找到有效的分片数据');
       }
 
-      const threshold = validShareData[0].threshold;
-
-      if (validShareData.length < threshold) {
-        throw new Error(`分片数量不足。至少需要 ${threshold} 个分片，但只提供了 ${validShareData.length} 个。`);
+      const threshold = shareDataList[0].threshold;
+      if (shareDataList.length < threshold) {
+        throw new Error(`分片数量不足。至少需要 ${threshold} 个分片，但只提供了 ${shareDataList.length} 个。`);
       }
 
-      const recoveredMnemonic = await this.recoverFromShareData(validShareData.slice(0, threshold));
+      const recoveredMnemonic = await this.recoverFromShareData(shareDataList.slice(0, threshold));
 
-      this.displayRecoverResult(recoveredMnemonic, validShareData.length, threshold);
+      this.displayRecoverResult(recoveredMnemonic, shareDataList.length, threshold);
       return true;
     } catch (error) {
       this.displayRecoverError(error.message);
       return false;
     } finally {
-      // 恢复按钮状态
-      recoverBtn.disabled = false;
-      recoverBtn.textContent = '恢复助记词';
-      // 清理密码
-      this.clearUploadEncryptionPassword();
+      this.setRecoverBtnBusy(false);
     }
   }
 
   /**
-   * 显示恢复结果
+   * 显示恢复结果（带复制 / 隐藏 / 擦除保护）
    * @param {string} mnemonic - 恢复的助记词
    * @param {number} usedShares - 使用的分片数
    * @param {number} threshold - 所需分片数
    */
   displayRecoverResult(mnemonic, usedShares, threshold) {
-    // 根据当前活动的tab选择结果显示区域
-    const activeTabBtn = getElement('.tab-btn.active');
-    let resultDiv;
+    const resultDiv = this.getActiveRecoverResultDiv();
 
-    if (activeTabBtn && activeTabBtn.id === 'pasteTabBtn') {
-      resultDiv = getElement(SELECTORS.PASTE_RECOVER_RESULT);
-    } else if (activeTabBtn && activeTabBtn.id === 'uploadTabBtn') {
-      resultDiv = getElement(SELECTORS.UPLOAD_RECOVER_RESULT);
-    } else {
-      // 回退到原来的方式
-      resultDiv = getElement(SELECTORS.RECOVER_RESULT);
-    }
-
-    if (!resultDiv) return;
-
-    // 清空之前的内容
     clearElement(resultDiv);
 
     // 创建安全的DOM结构，防止XSS攻击：
     // 恢复结果完全由输入分片决定（攻击者可控），必须用 textContent 渲染，禁止拼 HTML
-    const alertDiv = document.createElement('div');
-    alertDiv.className = 'alert alert-success';
+    const card = createElement('div', ['recover-card']);
 
-    const titleStrong = document.createElement('strong');
-    titleStrong.textContent = '恢复成功！';
-    alertDiv.appendChild(titleStrong);
-    alertDiv.appendChild(document.createElement('br'));
+    const title = createElement('div', ['recover-card-title']);
+    title.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-check"/></svg>';
+    title.appendChild(document.createTextNode('恢复成功'));
 
-    const mnemonicLabel = document.createElement('strong');
-    mnemonicLabel.textContent = '助记词：';
-    alertDiv.appendChild(mnemonicLabel);
-    alertDiv.appendChild(document.createElement('br'));
+    const meta = createElement('div', ['recover-card-meta']);
+    meta.textContent = `使用 ${usedShares} 个分片（需要 ${threshold} 个） · ${formatDateTime()}`;
 
-    const mnemonicSpan = document.createElement('span');
-    mnemonicSpan.className = 'recovered-mnemonic';
+    const mnemonicDiv = createElement('div', ['recovered-mnemonic']);
     mnemonic
       .trim()
       .split(/\s+/)
@@ -636,26 +532,47 @@ export class ShareManager {
         const wordSpan = document.createElement('span');
         wordSpan.className = 'word';
         wordSpan.textContent = word;
-        mnemonicSpan.appendChild(wordSpan);
+        mnemonicDiv.appendChild(wordSpan);
         if (index < words.length - 1) {
-          mnemonicSpan.appendChild(document.createTextNode(' '));
+          mnemonicDiv.appendChild(document.createTextNode(' '));
         }
       });
-    alertDiv.appendChild(mnemonicSpan);
-    alertDiv.appendChild(document.createElement('br'));
 
-    const sharesLabel = document.createElement('strong');
-    sharesLabel.textContent = '使用分片数：';
-    alertDiv.appendChild(sharesLabel);
-    alertDiv.appendChild(document.createTextNode(`${usedShares} 个（需要 ${threshold} 个）`));
-    alertDiv.appendChild(document.createElement('br'));
+    const actions = createElement('div', ['recover-card-actions']);
 
-    const timeLabel = document.createElement('strong');
-    timeLabel.textContent = '恢复时间：';
-    alertDiv.appendChild(timeLabel);
-    alertDiv.appendChild(document.createTextNode(formatDateTime()));
+    const copyBtn = createElement('button', ['btn', 'btn-primary', 'btn-sm'], { type: 'button' });
+    copyBtn.textContent = '复制助记词';
+    addEvent(copyBtn, 'click', async () => {
+      const success = await copyToClipboard(mnemonic);
+      if (success) {
+        Toast.success('助记词已复制到剪贴板');
+      } else {
+        Toast.error('复制到剪贴板失败');
+      }
+    });
 
-    resultDiv.appendChild(alertDiv);
+    const maskBtn = createElement('button', ['btn', 'btn-secondary', 'btn-sm'], { type: 'button' });
+    maskBtn.textContent = '隐藏';
+    addEvent(maskBtn, 'click', () => {
+      const masked = toggleClass(mnemonicDiv, 'is-masked');
+      maskBtn.textContent = masked ? '显示' : '隐藏';
+    });
+
+    const wipeBtn = createElement('button', ['btn', 'btn-danger-outline', 'btn-sm'], { type: 'button' });
+    wipeBtn.textContent = '擦除';
+    addEvent(wipeBtn, 'click', () => {
+      clearElement(resultDiv);
+      this.onWipeRecovery?.();
+      Toast.info('已擦除恢复数据');
+    });
+
+    actions.append(copyBtn, maskBtn, wipeBtn);
+
+    const hint = createElement('div', ['recover-card-hint']);
+    hint.textContent = '请勿截屏或录屏；助记词已恢复，建议立即转存到安全位置并擦除本页内容。';
+
+    card.append(title, meta, mnemonicDiv, actions, hint);
+    resultDiv.appendChild(card);
   }
 
   /**
@@ -663,168 +580,49 @@ export class ShareManager {
    * @param {string} errorMessage - 错误消息
    */
   displayRecoverError(errorMessage) {
-    // 根据当前活动的tab选择结果显示区域
-    const activeTabBtn = getElement('.tab-btn.active');
-    let resultDiv;
+    const resultDiv = this.getActiveRecoverResultDiv();
 
-    if (activeTabBtn && activeTabBtn.id === 'pasteTabBtn') {
-      resultDiv = getElement(SELECTORS.PASTE_RECOVER_RESULT);
-    } else if (activeTabBtn && activeTabBtn.id === 'uploadTabBtn') {
-      resultDiv = getElement(SELECTORS.UPLOAD_RECOVER_RESULT);
-    } else {
-      // 回退到原来的方式
-      resultDiv = getElement(SELECTORS.RECOVER_RESULT);
-    }
-
-    if (!resultDiv) return;
-
-    // 清空之前的内容
-    resultDiv.innerHTML = '';
+    clearElement(resultDiv);
 
     // 创建安全的DOM结构，防止XSS攻击
-    const alertDiv = document.createElement('div');
-    alertDiv.className = 'alert alert-error';
+    const card = createElement('div', ['recover-card', 'is-error']);
 
-    const strongElement = document.createElement('strong');
-    strongElement.textContent = '恢复失败：';
-    alertDiv.appendChild(strongElement);
+    const title = createElement('div', ['recover-card-title']);
+    title.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-warning"/></svg>';
+    title.appendChild(document.createTextNode('恢复失败'));
 
-    const errorTextSpan = document.createElement('span');
-    errorTextSpan.textContent = errorMessage;
-    alertDiv.appendChild(errorTextSpan);
+    const text = createElement('span', ['recover-card-error-text']);
+    text.textContent = errorMessage;
 
-    alertDiv.appendChild(document.createElement('br'));
+    const hint = createElement('span', ['recover-card-error-hint']);
+    hint.textContent = '请检查分片格式是否正确，确保每行一个完整的分片。';
 
-    const smallElement = document.createElement('small');
-    smallElement.textContent = '请检查分片格式是否正确，确保每行一个完整的分片';
-    alertDiv.appendChild(smallElement);
-
-    resultDiv.appendChild(alertDiv);
+    card.append(title, text, hint);
+    resultDiv.appendChild(card);
   }
 
   /**
-   * 更新状态显示
-   * @param {string} status - 状态类型
-   * @param {string} message - 状态消息
+   * 根据当前活动 Tab 选择结果展示区域
+   * @returns {Element} 结果容器
    */
-  updateStatus(status, message) {
-    const statusDiv = getElement(SELECTORS.INPUT_STATUS);
-    if (!statusDiv) return;
-
-    // 移除所有状态类
-    statusDiv.className = 'input-status';
-
-    // 添加新的状态类
-    toggleClass(statusDiv, `input-${status}`, true);
-
-    // 设置消息 - 使用 textContent 防止消息内容被当作 HTML 执行
-    statusDiv.innerHTML = '';
-    const spanElement = document.createElement('span');
-    spanElement.className = 'status-text';
-    spanElement.textContent = message;
-    statusDiv.appendChild(spanElement);
+  getActiveRecoverResultDiv() {
+    const activeTabBtn = getElement('.tab-btn.active');
+    const selector =
+      activeTabBtn?.id === 'uploadTabBtn' ? SELECTORS.UPLOAD_RECOVER_RESULT : SELECTORS.PASTE_RECOVER_RESULT;
+    return getElement(selector);
   }
 
   /**
-   * 显示成功消息
-   * @param {string} message - 消息内容
+   * 清空分片结果区域（页脚"擦除所有数据"使用）
    */
-  showSuccess(message) {
-    this.showAlert('success', message);
-  }
-
-  /**
-   * 显示错误消息
-   * @param {string} message - 消息内容
-   */
-  showError(message) {
-    this.showAlert('error', message);
-  }
-
-  /**
-   * 显示信息消息
-   * @param {string} message - 消息内容
-   */
-  showInfo(message) {
-    this.showAlert('info', message);
-  }
-
-  /**
-   * 显示提示消息
-   * @param {string} type - 消息类型
-   * @param {string} message - 消息内容
-   */
-  showAlert(type, message) {
-    // 隐藏所有提示
-    this.hideAllAlerts();
-
-    let alertElement;
-    switch (type) {
-      case 'success':
-        alertElement = getElement(SELECTORS.SUCCESS_ALERT);
-        break;
-      case 'error':
-        alertElement = getElement(SELECTORS.GENERAL_ERROR_ALERT);
-        break;
-      case 'info':
-        // 创建一个临时的信息提示
-        alertElement = document.createElement('div');
-        alertElement.className = 'alert alert-info';
-        alertElement.style.display = 'none';
-        const container = getElement('.main-content');
-        if (container) {
-          container.appendChild(alertElement);
-        }
-        break;
-      default:
-        alertElement = getElement(SELECTORS.GENERAL_ERROR_ALERT);
-        break;
-    }
-
-    if (alertElement) {
-      setText(alertElement, message);
-      toggleElement(alertElement, true);
-
-      // 3秒后自动隐藏
-      setTimeout(() => {
-        toggleElement(alertElement, false);
-        // 如果是临时创建的info元素，移除它
-        if (type === 'info' && alertElement.parentNode) {
-          alertElement.parentNode.removeChild(alertElement);
-        }
-      }, 3000);
-    }
-  }
-
-  /**
-   * 隐藏所有提示
-   */
-  hideAllAlerts() {
-    const alerts = [SELECTORS.INPUT_ERROR_ALERT, SELECTORS.DUPLICATE_ALERT, SELECTORS.GENERAL_ERROR_ALERT, SELECTORS.SUCCESS_ALERT];
-
-    alerts.forEach((selector) => {
-      const alert = getElement(selector);
-      if (alert) {
-        toggleElement(alert, false);
-      }
-    });
-  }
-
-  /**
-   * 从对话框获取密码
-   * @param {boolean} isRetry - 是否是重试
-   * @returns {Promise<string>} 密码
-   */
-  async getPasswordFromDialog(isRetry = false) {
-    return await passwordDialog.show(isRetry);
-  }
-
-  /**
-   * 清理资源
-   */
-  destroy() {
+  clearResults() {
     this.currentShares = [];
     this.currentThreshold = 0;
     this.copiedShares.clear();
+    this.downloadedShares.clear();
+    this.clearEncryptionFields();
+
+    toggleElement(getElement(SELECTORS.SHARES_RESULT), false);
+    clearElement(getElement(SELECTORS.SHARES_LIST));
   }
 }

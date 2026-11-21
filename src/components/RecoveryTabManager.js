@@ -1,26 +1,22 @@
 /**
  * 恢复Tab管理器
  * 负责处理tab切换、文件上传和分片解析功能
+ * 加密分片在恢复前通过内联密码区解密，恢复入口统一消费标准分片对象
  */
 
-import { getElement, createElement, toggleElement, toggleClass, setHTML, clearElement, addEvent } from '../utils/dom.js';
-import { validateShareCollection } from '../utils/validation.js';
-import { validatePasswordMatch, decryptWithPassword, detectGpgFormat } from '../utils/encryption.js';
-import { passwordDialog } from './PasswordDialog.js';
+import { getElement, createElement, toggleElement, toggleClass, clearElement, addEvent } from '../utils/dom.js';
+import { debounce } from '../utils/helpers.js';
+import { parseShareData, validateShareCollection } from '../utils/validation.js';
+import { decryptWithPassword, PGP_ARMOR_HEADER } from '../utils/encryption.js';
+import { UI_CONFIG, SELECTORS, CSS_CLASSES } from '../constants/index.js';
+import { Toast } from './Toast.js';
 
 export class RecoveryTabManager {
   constructor() {
     this.activeTab = 'paste'; // 'paste' | 'upload'
     this.uploadedFiles = [];
-    this.parsedShares = [];
-    this.isEncryptionEnabled = false;
-    this.encryptionPassword = '';
-    this.currentThreshold = 0;
-    this.validShareCount = 0;
-    this.pendingFiles = []; // 待处理的文件
-    this.hasEncryptedFiles = false; // 是否有加密文件
     this.uploadPassword = ''; // 上传文件时的解密密码
-    this.passwordVisible = false; // 密码是否可见
+    this.passwordVisible = false;
 
     this.init();
   }
@@ -32,22 +28,23 @@ export class RecoveryTabManager {
     this.setupTabSwitching();
     this.setupFileUpload();
     this.setupEncryptionPassword();
+    this.setupRecoverInputListener();
+  }
+
+  /**
+   * 粘贴输入框监听（防抖，避免逐字符解析分片造成卡顿）
+   */
+  setupRecoverInputListener() {
+    const input = getElement(SELECTORS.RECOVER_INPUT);
+    addEvent(input, 'input', debounce(() => this.validateCurrentTab(), UI_CONFIG.DELAY.DEBOUNCE));
   }
 
   /**
    * 设置Tab切换
    */
   setupTabSwitching() {
-    const pasteTabBtn = getElement('#pasteTabBtn');
-    const uploadTabBtn = getElement('#uploadTabBtn');
-    const pasteTab = getElement('#pasteTab');
-    const uploadTab = getElement('#uploadTab');
-
-    if (!pasteTabBtn || !uploadTabBtn || !pasteTab || !uploadTab) return;
-
-    // Tab按钮点击事件
-    addEvent(pasteTabBtn, 'click', () => this.switchTab('paste'));
-    addEvent(uploadTabBtn, 'click', () => this.switchTab('upload'));
+    addEvent(getElement(SELECTORS.PASTE_TAB_BTN), 'click', () => this.switchTab('paste'));
+    addEvent(getElement(SELECTORS.UPLOAD_TAB_BTN), 'click', () => this.switchTab('upload'));
   }
 
   /**
@@ -57,31 +54,17 @@ export class RecoveryTabManager {
   switchTab(tabType) {
     if (this.activeTab === tabType) return;
 
-    const pasteTabBtn = getElement('#pasteTabBtn');
-    const uploadTabBtn = getElement('#uploadTabBtn');
-    const pasteTab = getElement('#pasteTab');
-    const uploadTab = getElement('#uploadTab');
-
-    // 更新按钮状态
-    toggleClass(pasteTabBtn, 'active', tabType === 'paste');
-    toggleClass(uploadTabBtn, 'active', tabType === 'upload');
-
-    // 更新内容显示
-    toggleClass(pasteTab, 'active', tabType === 'paste');
-    toggleClass(uploadTab, 'active', tabType === 'upload');
+    const isPaste = tabType === 'paste';
+    toggleClass(getElement(SELECTORS.PASTE_TAB_BTN), CSS_CLASSES.ACTIVE, isPaste);
+    toggleClass(getElement(SELECTORS.UPLOAD_TAB_BTN), CSS_CLASSES.ACTIVE, !isPaste);
+    toggleClass(getElement(SELECTORS.PASTE_TAB), CSS_CLASSES.ACTIVE, isPaste);
+    toggleClass(getElement(SELECTORS.UPLOAD_TAB), CSS_CLASSES.ACTIVE, !isPaste);
 
     // 清空上一个tab的结果显示
-    if (this.activeTab === 'paste') {
-      const pasteResultDiv = getElement('#pasteRecoverResult');
-      if (pasteResultDiv) {
-        setHTML(pasteResultDiv, '');
-      }
-    } else if (this.activeTab === 'upload') {
-      const uploadResultDiv = getElement('#uploadRecoverResult');
-      if (uploadResultDiv) {
-        setHTML(uploadResultDiv, '');
-      }
-    }
+    const prevResult = getElement(
+      this.activeTab === 'paste' ? SELECTORS.PASTE_RECOVER_RESULT : SELECTORS.UPLOAD_RECOVER_RESULT,
+    );
+    clearElement(prevResult);
 
     this.activeTab = tabType;
 
@@ -90,31 +73,44 @@ export class RecoveryTabManager {
   }
 
   /**
-   * 设置文件上传
+   * 设置文件上传（点击选择 + 拖放）
    */
   setupFileUpload() {
-    const selectFilesBtn = getElement('#selectFilesBtn');
-    const fileInput = getElement('#fileInput');
-    const clearFilesBtn = getElement('#clearFilesBtn');
+    const uploadArea = getElement(SELECTORS.UPLOAD_AREA);
+    const fileInput = getElement(SELECTORS.FILE_INPUT);
 
-    if (!selectFilesBtn || !fileInput) return;
-
-    // 点击选择文件按钮
-    addEvent(selectFilesBtn, 'click', () => {
+    addEvent(getElement(SELECTORS.SELECT_FILES_BTN), 'click', () => {
       fileInput.click();
     });
 
-    // 文件选择事件
-    addEvent(fileInput, 'change', (e) => {
-      this.handleFileSelect(e.target.files);
+    // 点击整个上传区域（按钮除外，避免重复触发）也可选择文件
+    addEvent(uploadArea, 'click', (e) => {
+      if (e.target.closest('.upload-btn')) return;
+      fileInput.click();
     });
 
-    // 清空文件按钮
-    if (clearFilesBtn) {
-      addEvent(clearFilesBtn, 'click', () => {
-        this.clearAllFiles();
-      });
-    }
+    addEvent(fileInput, 'change', () => {
+      this.handleFileSelect(fileInput.files);
+    });
+
+    addEvent(getElement(SELECTORS.CLEAR_FILES_BTN), 'click', () => {
+      this.clearAllFiles();
+    });
+
+    addEvent(uploadArea, 'dragover', (e) => {
+      e.preventDefault();
+      toggleClass(uploadArea, 'dragover', true);
+    });
+
+    addEvent(uploadArea, 'dragleave', () => {
+      toggleClass(uploadArea, 'dragover', false);
+    });
+
+    addEvent(uploadArea, 'drop', (e) => {
+      e.preventDefault();
+      toggleClass(uploadArea, 'dragover', false);
+      this.handleFileSelect(e.dataTransfer.files);
+    });
   }
 
   /**
@@ -122,69 +118,57 @@ export class RecoveryTabManager {
    * @param {FileList} files - 文件列表
    */
   async handleFileSelect(files) {
-    if (!files || files.length === 0) return;
+    if (!files?.length) return;
 
     // 验证文件类型和大小
     const validFiles = this.validateFiles(files);
     if (validFiles.length === 0) return;
 
-    // 检查是否有加密文件
-    this.hasEncryptedFiles = validFiles.some((file) => file.name.endsWith('.gpg'));
-
-    // 直接处理文件
     await this.processFiles(validFiles);
 
-    // 如果有加密文件，显示密码输入区域
-    if (this.hasEncryptedFiles) {
-      this.togglePasswordSection(true, true);
+    // 存在加密文件时展开密码输入区
+    if (validFiles.some((file) => file.name.endsWith('.gpg'))) {
+      this.togglePasswordSection(true);
     }
   }
 
   /**
    * 处理文件列表
-   * @param {Array} files - 文件列表
+   * @param {File[]} files - 文件列表
    */
   async processFiles(files) {
-    // 处理每个文件
     for (const file of files) {
       await this.processFile(file);
     }
 
-    // 更新UI
     this.updateFilesList();
-
-    // 即使没有加密文件，也要验证当前状态
-    this.validateCurrentShares();
+    this.validateCurrentTab();
   }
 
   /**
    * 验证文件
    * @param {FileList} files - 文件列表
-   * @returns {Array} 有效文件列表
+   * @returns {File[]} 有效文件列表
    */
   validateFiles(files) {
     const validFiles = [];
     const maxSize = 5 * 1024 * 1024; // 5MB
 
     for (const file of files) {
-      // 检查文件类型
-      const validExtensions = ['.txt', '.gpg'];
       const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
 
-      if (!validExtensions.includes(fileExtension)) {
-        this.showError(`不支持的文件类型：${file.name}`);
+      if (!['.txt', '.gpg'].includes(fileExtension)) {
+        Toast.error(`不支持的文件类型：${file.name}`);
         continue;
       }
 
-      // 检查文件大小
       if (file.size > maxSize) {
-        this.showError(`文件过大：${file.name}`);
+        Toast.error(`文件过大：${file.name}`);
         continue;
       }
 
-      // 检查重复文件
       if (this.uploadedFiles.some((f) => f.name === file.name)) {
-        this.showError(`重复文件：${file.name}`);
+        Toast.error(`重复文件：${file.name}`);
         continue;
       }
 
@@ -199,316 +183,113 @@ export class RecoveryTabManager {
    * @param {File} file - 文件对象
    */
   async processFile(file) {
+    const fileData = {
+      name: file.name,
+      content: null,
+      status: 'processing',
+      shareData: null,
+      isEncrypted: file.name.endsWith('.gpg'),
+    };
+    this.uploadedFiles.push(fileData);
+
     try {
-      // 添加到上传列表
-      const fileData = {
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        content: '',
-        status: 'processing',
-        shareData: null,
-        isEncrypted: file.name.endsWith('.gpg'),
-        decryptedContent: null,
-        contentFormat: 'text', // 'text' 或 'binary'
-      };
+      fileData.content = await this.readFileContent(file);
 
-      this.uploadedFiles.push(fileData);
-
-      // 读取文件内容
-      const content = await this.readFileContent(file);
-      fileData.content = content;
-
-      // 检测内容格式
       if (fileData.isEncrypted) {
-        fileData.contentFormat = (content instanceof ArrayBuffer) ? 'binary' : 'text';
+        // 加密文件等待用户在内联密码区解密
         fileData.status = 'encrypted';
-      } else {
-        // 非加密文件必须是文本格式
-        if (typeof content !== 'string') {
-          fileData.status = 'invalid';
-          return;
-        }
-        fileData.contentFormat = 'text';
-
-        // 解析分片内容
-        const shareData = this.parseShareContent(content);
-        if (shareData && !shareData.encrypted) {
-          fileData.shareData = shareData;
-          fileData.status = 'valid';
-        } else {
-          fileData.status = 'invalid';
-        }
+        return;
       }
+
+      fileData.shareData = this.parseShareText(fileData.content);
+      fileData.status = fileData.shareData ? 'valid' : 'invalid';
     } catch (error) {
-      const fileIndex = this.uploadedFiles.findIndex((f) => f.name === file.name);
-      if (fileIndex !== -1) {
-        this.uploadedFiles[fileIndex].status = 'invalid';
-      }
+      fileData.status = 'invalid';
     }
   }
 
   /**
-   * 从对话框获取密码
-   * @param {boolean} isRetry - 是否是重试
-   * @returns {Promise<string>} 密码
-   */
-  async getPasswordFromDialog(isRetry = false) {
-    return await passwordDialog.show(isRetry);
-  }
-
-  /**
-   * 重试解密
-   * @param {Array} encryptedFiles - 加密文件列表
-   * @param {string} password - 密码
-   */
-  async retryDecryption(encryptedFiles, password) {
-    let decryptionSuccess = false;
-
-    for (const file of encryptedFiles) {
-      try {
-        const decryptedContent = await decryptWithPassword(file.content, password);
-        file.decryptedContent = decryptedContent;
-
-        // 解析解密后的分片内容
-        const shareData = this.parseShareContent(decryptedContent);
-        if (shareData && !shareData.encrypted) {
-          file.shareData = shareData;
-          file.status = 'valid';
-          decryptionSuccess = true;
-        } else {
-          file.status = 'invalid';
-        }
-      } catch (error) {
-        file.status = 'invalid';
-        // 提供更详细的错误信息
-        if (error.message.includes('密码错误')) {
-          // 密码错误，继续尝试其他文件
-        } else if (error.message.includes('格式无效')) {
-          // 格式错误，标记为无效但继续尝试其他文件
-          console.warn(`文件 ${file.name} 格式无效:`, error.message);
-        } else {
-          // 其他错误
-          console.warn(`文件 ${file.name} 解密失败:`, error.message);
-        }
-      }
-
-      // 每解密一个文件就更新UI和验证状态
-      this.updateFilesList();
-      this.validateCurrentShares();
-    }
-
-    // 如果重试仍然失败，显示错误信息
-    if (!decryptionSuccess) {
-      this.showError('密码无效，请检查后重试');
-    }
-  }
-
-  /**
-   * 验证当前分片状态
-   */
-  validateCurrentShares() {
-    const statusDiv = getElement('#uploadStatus');
-    const recoverBtn = getElement('#recoverBtn');
-
-    if (!statusDiv || !recoverBtn) return;
-
-    // 收集所有有效分片
-    const allShares = this.uploadedFiles.filter((file) => file.status === 'valid' && file.shareData).map((file) => file.shareData);
-
-    // 检查是否有待解密的文件
-    const encryptedFiles = this.uploadedFiles.filter((file) => file.status === 'encrypted');
-
-    if (allShares.length === 0 && encryptedFiles.length === 0) {
-      this.updateStatus('invalid', '没有找到有效的分片数据', statusDiv);
-      recoverBtn.disabled = true;
-      return;
-    }
-
-    if (allShares.length === 0 && encryptedFiles.length > 0) {
-      this.updateStatus('waiting', '解密需要密码', statusDiv);
-      recoverBtn.disabled = false; // 允许用户点击恢复按钮，然后在恢复时弹出密码输入框
-      return;
-    }
-
-    // 验证分片集合
-    const validation = validateShareCollection(allShares);
-
-    if (validation.isValid) {
-      this.updateStatus('valid', `检测到 ${validation.validCount} 个有效分片（需要 ${validation.threshold} 个），可以开始恢复`, statusDiv);
-      recoverBtn.disabled = false;
-      this.currentThreshold = validation.threshold;
-      this.validShareCount = validation.validCount;
-    } else {
-      if (validation.validCount < validation.threshold) {
-        this.updateStatus('insufficient', `解密后分片数量不足。至少需要 ${validation.threshold} 个分片，但只有 ${validation.validCount} 个。`, statusDiv);
-      } else {
-        this.updateStatus('invalid', '无效的分片格式。请检查您的输入。', statusDiv);
-      }
-      recoverBtn.disabled = true;
-    }
-  }
-
-  /**
-   * 读取文件内容（支持GPG文件的智能格式检测）
+   * 读取文件内容：.gpg 读取二进制后按是否为 ASCII 装甲决定返回文本或二进制
    * @param {File} file - 文件对象
    * @returns {Promise<string|ArrayBuffer>} 文件内容
    */
   async readFileContent(file) {
-    // 对于GPG文件，我们需要更谨慎的处理
     if (file.name.endsWith('.gpg')) {
-      return this.readGpgFile(file);
-    } else {
-      // 非GPG文件，简单读取为文本
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve(e.target.result);
-        reader.onerror = () => reject(new Error('Failed to read file'));
-        reader.readAsText(file);
-      });
+      const buffer = await this.readFileAs(file, 'readAsArrayBuffer');
+      const text = new TextDecoder('utf-8', { fatal: false }).decode(buffer);
+      return text.startsWith(PGP_ARMOR_HEADER) ? text : buffer;
     }
+    return this.readFileAs(file, 'readAsText');
   }
 
   /**
-   * 读取GPG文件，智能检测格式
-   * @param {File} file - GPG文件对象
-   * @returns {Promise<string|ArrayBuffer>} 文件内容
-   */
-  async readGpgFile(file) {
-    // 首先尝试读取为ArrayBuffer（二进制格式）
-    try {
-      const binaryResult = await this.readAsArrayBuffer(file);
-      const format = detectGpgFormat(binaryResult);
-
-      // 如果检测到是二进制PGP格式，直接返回
-      if (format.type === 'binary-packet' || format.type === 'binary') {
-        return binaryResult;
-      }
-
-      // 如果包含ASCII装甲头部，转换为文本
-      if (format.type === 'ascii-armor') {
-        try {
-          const textContent = new TextDecoder('utf-8', { fatal: false }).decode(binaryResult);
-          return textContent;
-        } catch (decodeError) {
-          // 如果解码失败，返回二进制格式
-          return binaryResult;
-        }
-      }
-
-      // 如果不确定，也尝试读取为文本格式
-      const textResult = await this.readAsText(file);
-      const trimmed = textResult.trim();
-
-      // 如果包含PGP装甲标记，返回文本
-      if (trimmed.startsWith('-----BEGIN PGP MESSAGE-----')) {
-        return textResult;
-      }
-
-      // 如果文本很短或包含控制字符，很可能是二进制被误读
-      if (trimmed.length < 200 || /[\x00-\x08\x0E-\x1F\x7F]/.test(trimmed)) {
-        return binaryResult;
-      }
-
-      // 默认返回文本（假设是ASCII装甲格式）
-      return textResult;
-    } catch (error) {
-      // 如果二进制读取失败，回退到文本读取
-      console.warn('二进制读取失败，回退到文本模式:', error);
-      return this.readAsText(file);
-    }
-  }
-
-  /**
-   * 读取文件为ArrayBuffer
+   * 读取文件（FileReader 的 Promise 封装）
    * @param {File} file - 文件对象
-   * @returns {Promise<ArrayBuffer>} ArrayBuffer数据
+   * @param {'readAsArrayBuffer'|'readAsText'} method - FileReader 读取方法
+   * @returns {Promise<string|ArrayBuffer>} 读取结果
    */
-  readAsArrayBuffer(file) {
+  readFileAs(file, method) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = (e) => resolve(e.target.result);
-      reader.onerror = () => reject(new Error('Failed to read file as binary'));
-      reader.readAsArrayBuffer(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error(`Failed to read file: ${file.name}`));
+      reader[method](file);
     });
   }
 
   /**
-   * 读取文件为文本
-   * @param {File} file - 文件对象
-   * @returns {Promise<string>} 文本数据
-   */
-  readAsText(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => resolve(e.target.result);
-      reader.onerror = () => reject(new Error('Failed to read file as text'));
-      reader.readAsText(file, 'utf-8');
-    });
-  }
-
-  /**
-   * 解析分片内容
+   * 解析分片文本：先整体解析，失败则逐行扫描
+   * （兼容 .txt 中带说明头部的格式，取第一个有效分片）
    * @param {string} content - 文件内容
    * @returns {Object|null} 分片数据
    */
-  parseShareContent(content) {
-    try {
-      // 首先尝试直接解析整个内容（适用于单行分片）
-      try {
-        const trimmedContent = content.trim();
-        // 检查是否是GPG格式（以-----BEGIN PGP MESSAGE-----开头）
-        if (trimmedContent.startsWith('-----BEGIN PGP MESSAGE-----')) {
-          return { encrypted: true, content: trimmedContent };
-        }
+  parseShareText(content) {
+    const whole = parseShareData(content);
+    if (whole) return whole;
 
-        // 尝试解析为标准分片
-        const shareData = JSON.parse(atob(trimmedContent));
-        if (shareData.threshold && shareData.index !== undefined && shareData.data) {
-          return shareData;
-        }
-      } catch (e) {
-        // 继续尝试多行解析
-      }
-
-      // 尝试解析多行内容
-      const lines = content
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0);
-
-      for (const line of lines) {
-        try {
-          // 检查是否是GPG格式
-          if (line.startsWith('-----BEGIN PGP MESSAGE-----')) {
-            return { encrypted: true, content: line };
-          }
-
-          const shareData = JSON.parse(atob(line));
-          if (shareData.threshold && shareData.index !== undefined && shareData.data) {
-            return shareData;
-          }
-        } catch (e) {
-          // 继续尝试下一行
-        }
-      }
-
-      // 如果所有解析都失败，可能是加密分片或其他格式，返回原始内容
-      return { encrypted: true, content: content.trim() };
-    } catch (error) {
-      // 即使解析失败，也返回原始内容，让后续处理决定
-      return { encrypted: true, content: content.trim() };
+    for (const line of content.split('\n')) {
+      if (!line.trim()) continue;
+      const data = parseShareData(line);
+      if (data) return data;
     }
+
+    return null;
+  }
+
+  /**
+   * 尝试用密码解密所有加密文件
+   * @param {Object[]} encryptedFiles - 加密文件列表
+   * @param {string} password - 密码
+   * @returns {Promise<boolean>} 是否至少成功解密一个文件
+   */
+  async decryptEncryptedFiles(encryptedFiles, password) {
+    let successCount = 0;
+
+    for (const file of encryptedFiles) {
+      try {
+        const decryptedContent = await decryptWithPassword(file.content, password);
+        file.shareData = this.parseShareText(decryptedContent);
+        file.status = file.shareData ? 'valid' : 'invalid';
+        if (file.shareData) successCount++;
+      } catch (error) {
+        // 密码错误保持 encrypted 以便重试；格式问题标记 invalid
+        if (!error.message.includes('密码错误')) {
+          file.status = 'invalid';
+        }
+      }
+    }
+
+    this.updateFilesList();
+    this.validateCurrentTab();
+    return successCount > 0;
   }
 
   /**
    * 更新文件列表UI
    */
   updateFilesList() {
-    const uploadedFiles = getElement('#uploadedFiles');
-    const filesList = getElement('#filesList');
-
-    if (!uploadedFiles || !filesList) return;
+    const uploadedFiles = getElement(SELECTORS.UPLOADED_FILES);
+    const filesList = getElement(SELECTORS.FILES_LIST);
 
     if (this.uploadedFiles.length === 0) {
       toggleElement(uploadedFiles, false);
@@ -536,7 +317,7 @@ export class RecoveryTabManager {
     const fileInfo = createElement('div', ['file-info']);
 
     const fileIcon = createElement('div', ['file-icon']);
-    fileIcon.textContent = file.name.endsWith('.gpg') ? '🔒' : '📄';
+    fileIcon.innerHTML = `<svg class="icon" aria-hidden="true"><use href="#${file.isEncrypted ? 'i-lock' : 'i-file'}"/></svg>`;
 
     const fileDetails = createElement('div', ['file-details']);
 
@@ -552,8 +333,8 @@ export class RecoveryTabManager {
     fileInfo.appendChild(fileIcon);
     fileInfo.appendChild(fileDetails);
 
-    const fileRemove = createElement('button', ['file-remove']);
-    fileRemove.textContent = '×';
+    const fileRemove = createElement('button', ['file-remove'], { type: 'button', 'aria-label': `移除文件 ${file.name}` });
+    fileRemove.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-cross"/></svg>';
     addEvent(fileRemove, 'click', () => this.removeFile(index));
 
     fileItem.appendChild(fileInfo);
@@ -573,9 +354,8 @@ export class RecoveryTabManager {
       valid: '有效分片',
       invalid: '格式无效',
       encrypted: '加密文件 - 等待解密',
-      unknown: '未知状态',
     };
-    return statusTexts[status] || statusTexts.unknown;
+    return statusTexts[status] || statusTexts.invalid;
   }
 
   /**
@@ -593,8 +373,6 @@ export class RecoveryTabManager {
    */
   clearAllFiles() {
     this.uploadedFiles = [];
-    this.hasEncryptedFiles = false;
-    this.uploadPassword = '';
     this.updateFilesList();
     this.validateCurrentTab();
 
@@ -617,43 +395,27 @@ export class RecoveryTabManager {
    * 验证粘贴输入
    */
   validatePasteInput() {
-    const input = getElement('#recoverInput');
-    const statusDiv = getElement('#inputStatus');
-    const recoverBtn = getElement('#recoverBtn');
-
-    if (!input || !statusDiv || !recoverBtn) return;
+    const input = getElement(SELECTORS.RECOVER_INPUT);
+    const statusDiv = getElement(SELECTORS.INPUT_STATUS);
+    const recoverBtn = getElement(SELECTORS.RECOVER_BTN);
 
     const inputText = input.value.trim();
-
     if (!inputText) {
       this.updateStatus('waiting', '等待输入分片...', statusDiv);
       recoverBtn.disabled = true;
       return;
     }
 
-    const shareStrings = inputText
-      .split('\n')
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0);
-
-    if (shareStrings.length === 0) {
-      this.updateStatus('waiting', '等待输入分片...', statusDiv);
-      recoverBtn.disabled = true;
-      return;
-    }
-
-    const validation = validateShareCollection(shareStrings);
-    this.processValidationResult(validation, statusDiv, recoverBtn);
+    const shareStrings = inputText.split('\n').filter((line) => line.trim().length > 0);
+    this.processValidationResult(validateShareCollection(shareStrings), statusDiv, recoverBtn);
   }
 
   /**
    * 验证文件上传
    */
   validateFileUpload() {
-    const statusDiv = getElement('#uploadStatus');
-    const recoverBtn = getElement('#recoverBtn');
-
-    if (!statusDiv || !recoverBtn) return;
+    const statusDiv = getElement(SELECTORS.UPLOAD_STATUS);
+    const recoverBtn = getElement(SELECTORS.RECOVER_BTN);
 
     if (this.uploadedFiles.length === 0) {
       this.updateStatus('waiting', '等待文件上传...', statusDiv);
@@ -661,148 +423,128 @@ export class RecoveryTabManager {
       return;
     }
 
-    // 使用统一的验证方法
     this.validateCurrentShares();
   }
 
   /**
+   * 验证当前已上传文件中的分片
+   */
+  validateCurrentShares() {
+    const statusDiv = getElement(SELECTORS.UPLOAD_STATUS);
+    const recoverBtn = getElement(SELECTORS.RECOVER_BTN);
+
+    const allShares = this.uploadedFiles
+      .filter((file) => file.status === 'valid' && file.shareData)
+      .map((file) => file.shareData);
+    const encryptedFiles = this.uploadedFiles.filter((file) => file.status === 'encrypted');
+
+    if (allShares.length === 0) {
+      if (encryptedFiles.length > 0) {
+        this.updateStatus('insufficient', '存在待解密的加密文件，请先输入密码解密', statusDiv);
+      } else {
+        this.updateStatus('invalid', '没有找到有效的分片数据', statusDiv);
+      }
+      recoverBtn.disabled = true;
+      return;
+    }
+
+    this.processValidationResult(validateShareCollection(allShares), statusDiv, recoverBtn);
+  }
+
+  /**
    * 处理验证结果
-   * @param {Object} validation - 验证结果
+   * @param {Object} validation - validateShareCollection 的返回值
    * @param {Element} statusDiv - 状态显示元素
    * @param {Element} recoverBtn - 恢复按钮
    */
   processValidationResult(validation, statusDiv, recoverBtn) {
-    if (!validation.isValid) {
-      if (validation.validCount === 0) {
-        this.updateStatus('invalid', '无效的分片格式。请检查您的输入。', statusDiv);
-      } else if (validation.shareIndices.size !== validation.validCount) {
-        this.updateStatus('invalid', '检测到重复的分片。每个分片应该是唯一的。', statusDiv);
-      } else {
-        this.updateStatus('insufficient', `分片数量不足。至少需要 ${validation.threshold} 个分片，但只提供了 ${validation.validCount} 个。`, statusDiv);
-      }
-      recoverBtn.disabled = true;
+    if (validation.validCount === 0) {
+      this.updateStatus('invalid', '无效的分片格式。请检查您的输入。', statusDiv);
+    } else if (validation.hasDuplicates) {
+      this.updateStatus('invalid', '检测到重复的分片。每个分片应该是唯一的。', statusDiv);
+    } else if (!validation.isValid) {
+      this.updateStatus('insufficient', `分片数量不足。至少需要 ${validation.threshold} 个分片，但只提供了 ${validation.validCount} 个。`, statusDiv);
     } else {
       this.updateStatus('valid', `检测到 ${validation.validCount} 个有效分片（需要 ${validation.threshold} 个），可以开始恢复`, statusDiv);
-      recoverBtn.disabled = false;
-      this.currentThreshold = validation.threshold;
-      this.validShareCount = validation.validCount;
     }
+
+    recoverBtn.disabled = !validation.isValid;
   }
 
   /**
    * 更新状态显示
-   * @param {string} status - 状态类型
+   * @param {string} status - 状态类型：'waiting' | 'valid' | 'invalid' | 'insufficient'
    * @param {string} message - 状态消息
    * @param {Element} statusDiv - 状态显示元素
    */
   updateStatus(status, message, statusDiv) {
-    if (!statusDiv) return;
+    const prefix = statusDiv.id === 'inputStatus' ? 'input' : 'upload';
+    statusDiv.className = `${prefix}-status ${prefix}-${status}`;
 
-    // 移除所有状态类
-    statusDiv.className = statusDiv.className.replace(/\b(input|upload)-\w+\b/g, '');
-
-    // 添加新的状态类
-    const statusClass = statusDiv.id === 'inputStatus' ? `input-${status}` : `upload-${status}`;
-    toggleClass(statusDiv, statusClass, true);
-
-    // 设置消息 - 使用安全的DOM操作，防止XSS攻击
-    statusDiv.innerHTML = '';
-    const spanElement = document.createElement('span');
-    spanElement.className = 'status-text';
-    spanElement.textContent = message;
-    statusDiv.appendChild(spanElement);
+    const text = createElement('span', ['status-text']);
+    text.textContent = message;
+    statusDiv.replaceChildren(text);
   }
 
   /**
-   * 获取当前分片数据
-   * @returns {Array} 分片数据数组
+   * 获取当前分片数据（统一为标准分片对象）
+   * @returns {Object[]} 分片对象数组
    */
   getCurrentShares() {
     if (this.activeTab === 'paste') {
-      const input = getElement('#recoverInput');
-      if (!input) return [];
-
-      const inputText = input.value.trim();
-      if (!inputText) return [];
-
-      return inputText
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0);
-    } else {
-      // 返回有效的分片数据对象
-      return this.uploadedFiles.filter((file) => file.status === 'valid' && file.shareData).map((file) => file.shareData);
+      return getElement(SELECTORS.RECOVER_INPUT)
+        .value.split('\n')
+        .map((line) => parseShareData(line))
+        .filter((data) => data?.threshold && data.index !== undefined && data.data);
     }
+
+    return this.uploadedFiles
+      .filter((file) => file.status === 'valid' && file.shareData)
+      .map((file) => file.shareData);
   }
 
   /**
-   * 显示错误消息
-   * @param {string} message - 错误消息
+   * 清空恢复侧全部输入与状态（"擦除"动作使用）
    */
-  showError(message) {
-    // 创建临时错误提示
-    const errorAlert = createElement('div', ['alert', 'alert-error']);
-    errorAlert.style.position = 'fixed';
-    errorAlert.style.top = '20px';
-    errorAlert.style.right = '20px';
-    errorAlert.style.zIndex = '9999';
-    errorAlert.style.maxWidth = '400px';
-    errorAlert.textContent = message;
-
-    document.body.appendChild(errorAlert);
-
-    // 3秒后自动移除
-    setTimeout(() => {
-      if (errorAlert.parentNode) {
-        errorAlert.parentNode.removeChild(errorAlert);
-      }
-    }, 3000);
-  }
-
-  /**
-   * 销毁管理器
-   */
-  destroy() {
+  clearAll() {
+    getElement(SELECTORS.RECOVER_INPUT).value = '';
+    getElement(SELECTORS.UPLOAD_ENCRYPTION_PASSWORD).value = '';
     this.uploadedFiles = [];
-    this.parsedShares = [];
-    this.isEncryptionEnabled = false;
-    this.encryptionPassword = '';
-    this.currentThreshold = 0;
-    this.validShareCount = 0;
-    this.pendingFiles = [];
-    this.hasEncryptedFiles = false;
+    this.uploadPassword = '';
+
+    this.updateFilesList();
+    this.togglePasswordSection(false);
+
+    this.updateStatus('waiting', '等待输入分片...', getElement(SELECTORS.INPUT_STATUS));
+    this.updateStatus('waiting', '等待文件上传...', getElement(SELECTORS.UPLOAD_STATUS));
+    clearElement(getElement(SELECTORS.PASTE_RECOVER_RESULT));
+    clearElement(getElement(SELECTORS.UPLOAD_RECOVER_RESULT));
+    getElement(SELECTORS.RECOVER_BTN).disabled = true;
   }
 
   /**
    * 设置加密密码输入框
    */
   setupEncryptionPassword() {
-    const passwordInput = getElement('#uploadEncryptionPassword');
-    const passwordToggle = getElement('#uploadPasswordToggleBtn');
-    const applyBtn = getElement('#applyDecryptionBtn');
-    const skipBtn = getElement('#skipDecryptionBtn');
+    const passwordInput = getElement(SELECTORS.UPLOAD_ENCRYPTION_PASSWORD);
 
-    if (!passwordInput || !passwordToggle || !applyBtn || !skipBtn) return;
-
-    // 密码输入事件
     addEvent(passwordInput, 'input', () => {
       this.uploadPassword = passwordInput.value;
-      // 移除密码复杂度检验
     });
 
     // 密码可见性切换
-    addEvent(passwordToggle, 'click', () => {
+    addEvent(getElement(SELECTORS.UPLOAD_PASSWORD_TOGGLE_BTN), 'click', () => {
       this.togglePasswordVisibility();
     });
 
     // 应用解密按钮
-    addEvent(applyBtn, 'click', () => {
+    addEvent(getElement(SELECTORS.APPLY_DECRYPTION_BTN), 'click', () => {
       this.applyDecryption();
     });
 
     // 跳过解密按钮
-    addEvent(skipBtn, 'click', () => {
-      this.skipDecryption();
+    addEvent(getElement(SELECTORS.SKIP_DECRYPTION_BTN), 'click', () => {
+      this.togglePasswordSection(false);
     });
 
     // 回车键应用解密
@@ -817,43 +559,28 @@ export class RecoveryTabManager {
    * 切换密码可见性
    */
   togglePasswordVisibility() {
-    const passwordInput = getElement('#uploadEncryptionPassword');
-    const passwordToggle = getElement('#uploadPasswordToggleBtn');
-
-    if (!passwordInput || !passwordToggle) return;
-
     this.passwordVisible = !this.passwordVisible;
+    const passwordInput = getElement(SELECTORS.UPLOAD_ENCRYPTION_PASSWORD);
     passwordInput.type = this.passwordVisible ? 'text' : 'password';
-    passwordToggle.querySelector('.password-toggle-icon').textContent = this.passwordVisible ? '隐藏' : '显示';
+    getElement(SELECTORS.UPLOAD_PASSWORD_TOGGLE_BTN).querySelector('.password-toggle-icon').textContent =
+      this.passwordVisible ? '隐藏' : '显示';
   }
 
-  
   /**
    * 显示或隐藏密码输入区域
    * @param {boolean} show - 是否显示
-   * @param {boolean} hasEncryptedFiles - 是否有加密文件
    */
-  togglePasswordSection(show, hasEncryptedFiles = false) {
-    const passwordSection = getElement('#encryptionPasswordSection');
-    const uploadArea = getElement('#uploadArea');
+  togglePasswordSection(show) {
+    toggleElement(getElement(SELECTORS.ENCRYPTION_PASSWORD_SECTION), show);
 
-    if (!passwordSection || !uploadArea) return;
-
-    if (show && hasEncryptedFiles) {
-      // 显示密码输入区域
-      toggleElement(passwordSection, true);
-
-      // 添加加密文件指示器
+    if (show) {
       this.addEncryptedFilesIndicator();
 
-      // 聚焦到密码输入框
+      // 等待过渡动画使元素可见后再聚焦
       setTimeout(() => {
-        const passwordInput = getElement('#uploadEncryptionPassword');
-        if (passwordInput) passwordInput.focus();
+        getElement(SELECTORS.UPLOAD_ENCRYPTION_PASSWORD).focus();
       }, 100);
     } else {
-      // 隐藏密码输入区域
-      toggleElement(passwordSection, false);
       this.removeEncryptedFilesIndicator();
     }
   }
@@ -862,25 +589,19 @@ export class RecoveryTabManager {
    * 添加加密文件指示器
    */
   addEncryptedFilesIndicator() {
-    const uploadArea = getElement('#uploadArea');
-    if (!uploadArea) return;
-
-    // 检查是否已存在指示器
-    if (uploadArea.querySelector('.encrypted-files-indicator')) return;
+    const uploadArea = getElement(SELECTORS.UPLOAD_AREA);
+    // 指示器插入在上传区域之前，需在父节点上查重
+    if (uploadArea.parentNode.querySelector('.encrypted-files-indicator')) return;
 
     const indicator = createElement('div', ['encrypted-files-indicator']);
 
-    // 创建安全的DOM结构，防止XSS攻击
-    const iconSpan = document.createElement('span');
-    iconSpan.className = 'icon';
-    iconSpan.textContent = '🔒';
-    indicator.appendChild(iconSpan);
+    const iconSpan = createElement('span', ['icon']);
+    iconSpan.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-lock"/></svg>';
 
-    const textSpan = document.createElement('span');
+    const textSpan = createElement('span');
     textSpan.textContent = '检测到加密文件，需要输入密码进行解密';
-    indicator.appendChild(textSpan);
 
-    // 插入到上传区域之前
+    indicator.append(iconSpan, textSpan);
     uploadArea.parentNode.insertBefore(indicator, uploadArea);
   }
 
@@ -888,10 +609,7 @@ export class RecoveryTabManager {
    * 移除加密文件指示器
    */
   removeEncryptedFilesIndicator() {
-    const indicator = document.querySelector('.encrypted-files-indicator');
-    if (indicator && indicator.parentNode) {
-      indicator.parentNode.removeChild(indicator);
-    }
+    document.querySelector('.encrypted-files-indicator')?.remove();
   }
 
   /**
@@ -899,33 +617,24 @@ export class RecoveryTabManager {
    */
   async applyDecryption() {
     if (!this.uploadPassword) {
-      this.showError('解密需要密码');
+      Toast.error('解密需要密码');
       return;
     }
 
-    // 获取所有加密文件
     const encryptedFiles = this.uploadedFiles.filter((file) => file.status === 'encrypted');
-
     if (encryptedFiles.length === 0) {
-      this.showError('没有需要解密的文件');
+      Toast.error('没有需要解密的文件');
       return;
     }
 
-    // 尝试解密所有加密文件
-    await this.retryDecryption(encryptedFiles, this.uploadPassword);
+    const anyDecrypted = await this.decryptEncryptedFiles(encryptedFiles, this.uploadPassword);
 
-    // 隐藏密码输入区域
-    this.togglePasswordSection(false);
-  }
-
-  /**
-   * 跳过解密
-   */
-  skipDecryption() {
-    // 隐藏密码输入区域
-    this.togglePasswordSection(false);
-
-    // 验证当前状态（只考虑未加密的文件）
-    this.validateCurrentShares();
+    if (anyDecrypted) {
+      this.togglePasswordSection(false);
+    } else {
+      // 密码错误：保持密码区打开，允许用户原地重试
+      Toast.error('密码无效，请检查后重试');
+      getElement(SELECTORS.UPLOAD_ENCRYPTION_PASSWORD).focus();
+    }
   }
 }

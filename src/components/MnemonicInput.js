@@ -1,6 +1,7 @@
 /**
  * 助记词输入组件
  * 负责处理助记词输入、验证和自动完成功能
+ * 错误与提示通过固定高度状态条（#wordsStatusbar）展示，避免布局抖动
  */
 
 import { getElement, createElement, toggleElement, toggleClass, addEvent, clearElement } from '../utils/dom.js';
@@ -8,12 +9,26 @@ import { isValidBIP39Word } from '../utils/validation.js';
 import { debounce } from '../utils/helpers.js';
 import { BIP39_WORDLIST } from '../constants/bip39-words.js';
 import { UI_CONFIG, SELECTORS, CSS_CLASSES } from '../constants/index.js';
+import { Toast } from './Toast.js';
 
 export class MnemonicInput {
-  constructor(wordCount = 12) {
+  /**
+   * @param {number} wordCount - 初始助记词数量
+   * @param {Object} [options] - 可选配置
+   * @param {Function} [options.onWordCountAutoSwitch] - 粘贴完整助记词后自动切换词数时的回调
+   */
+  constructor(wordCount = 12, options = {}) {
     this.wordCount = wordCount;
-    this.autocompleteTimeouts = new Map();
-    this.suggestionCache = new Map();
+    this.onWordCountAutoSwitch = options.onWordCountAutoSwitch;
+    // 联想状态：输入框索引 -> { values: string[], activeIndex: number }
+    this.suggestionState = new Map();
+
+    // 点击输入区外时立即收起所有联想
+    this.outsidePointerDownHandler = (e) => {
+      if (e.target.closest('.input-wrapper')) return;
+      this.hideAllSuggestions();
+    };
+    document.addEventListener('pointerdown', this.outsidePointerDownHandler);
   }
 
   /**
@@ -57,6 +72,8 @@ export class MnemonicInput {
         }
       }
     }
+
+    this.refreshStatusbar();
   }
 
   /**
@@ -74,6 +91,15 @@ export class MnemonicInput {
       id: `word${index}`,
       placeholder: '',
       autocomplete: 'off',
+      // 关闭拼写检查与移动端自动大写/纠正，避免输入被静默改写
+      spellcheck: 'false',
+      autocapitalize: 'off',
+      autocorrect: 'off',
+      // ARIA combobox 模式：联想列表可键盘操作
+      role: 'combobox',
+      'aria-autocomplete': 'list',
+      'aria-expanded': 'false',
+      'aria-controls': `suggestions${index}`,
     });
 
     const label = createElement('label', [], {
@@ -83,6 +109,7 @@ export class MnemonicInput {
 
     const suggestionsDiv = createElement('div', ['autocomplete-suggestions'], {
       id: `suggestions${index}`,
+      role: 'listbox',
     });
 
     inputContainer.appendChild(input);
@@ -107,11 +134,10 @@ export class MnemonicInput {
 
     addEvent(input, 'input', debouncedHandler);
 
+    // 失焦时立即校验并收起联想（选中建议由 mousedown preventDefault 保证不触发失焦）
     addEvent(input, 'blur', () => {
-      setTimeout(() => {
-        this.validateAndStyleInput(input, index);
-        this.hideSuggestions(index);
-      }, UI_CONFIG.DELAY.BLUR_DELAY);
+      this.validateAndStyleInput(input, index);
+      this.hideSuggestions(index);
     });
 
     addEvent(input, 'focus', (e) => {
@@ -119,6 +145,100 @@ export class MnemonicInput {
         this.handleInputChange(input, index);
       }
     });
+
+    // 在第一个输入框粘贴完整助记词时自动分发到各输入框
+    addEvent(input, 'paste', (e) => this.handlePaste(e, index));
+
+    // 键盘导航：联想可见时 ↑↓ 选择、Enter 选中、Esc 关闭；否则 Enter 跳格
+    addEvent(input, 'keydown', (e) => this.handleInputKeydown(e, input, index));
+  }
+
+  /**
+   * 处理输入框键盘事件
+   * @param {KeyboardEvent} e - 键盘事件
+   * @param {Element} input - 输入框元素
+   * @param {number} index - 输入框索引
+   */
+  handleInputKeydown(e, input, index) {
+    const state = this.suggestionState.get(index);
+
+    if (state && state.values.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        this.moveActiveSuggestion(index, 1);
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        this.moveActiveSuggestion(index, -1);
+        return;
+      }
+      if (e.key === 'Enter') {
+        // 联想可见时 Enter 选中高亮项，不再跳格
+        e.preventDefault();
+        e.stopPropagation();
+        this.selectWord(state.values[state.activeIndex], index);
+        return;
+      }
+      if (e.key === 'Escape') {
+        this.hideSuggestions(index);
+        return;
+      }
+    }
+
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+
+    const nextInput = getElement(SELECTORS.WORD_INPUT(index + 1));
+    if (nextInput) {
+      nextInput.focus();
+    } else {
+      getElement(SELECTORS.GENERATE_BTN).click();
+    }
+  }
+
+  /**
+   * 处理粘贴事件：完整助记词（多个单词）粘贴到第一个输入框时自动分发
+   * @param {ClipboardEvent} e - 粘贴事件
+   * @param {number} index - 输入框索引
+   */
+  handlePaste(e, index) {
+    if (index !== 1) return;
+
+    const words = e.clipboardData
+      .getData('text')
+      .trim()
+      .split(/[\s,;、，；]+/)
+      .filter(Boolean)
+      .map((word) => word.toLowerCase());
+
+    // 单个单词按正常粘贴处理
+    if (words.length <= 1) return;
+
+    e.preventDefault();
+
+    // 粘贴 12/24 个单词时自动切换到对应的输入模式
+    if (words.length !== this.wordCount && (words.length === 12 || words.length === 24) && this.onWordCountAutoSwitch) {
+      this.onWordCountAutoSwitch(words.length);
+    }
+
+    const count = Math.min(words.length, this.wordCount);
+    for (let i = 1; i <= count; i++) {
+      const input = getElement(SELECTORS.WORD_INPUT(i));
+      if (!input) break;
+      input.value = words[i - 1];
+      this.validateAndStyleInput(input, i);
+    }
+
+    // 粘贴的词数超过输入框数量时多余部分会被丢弃，必须显式告知避免静默丢失
+    if (words.length > this.wordCount) {
+      Toast.info(`检测到 ${words.length} 个单词，已填入前 ${this.wordCount} 个，请核对助记词长度是否为 ${this.wordCount} 词`);
+    }
+
+    // 聚焦到下一个未填写的输入框，方便继续输入或补齐
+    const nextIndex = Math.min(count + 1, this.wordCount);
+    getElement(SELECTORS.WORD_INPUT(nextIndex))?.focus();
+    this.refreshStatusbar();
   }
 
   /**
@@ -129,18 +249,22 @@ export class MnemonicInput {
   handleInputChange(input, index) {
     const value = input.value.trim().toLowerCase();
 
-    // 清除之前的定时器
-    this.clearAutocompleteTimeout(index);
-
     if (value.length === 0) {
       this.hideSuggestions(index);
-      this.checkForDuplicateWords();
+      this.refreshStatusbar();
+      return;
+    }
+
+    // 仅在输入框持有焦点时显示联想，避免自动填充等无焦点输入留下悬空建议
+    if (document.activeElement !== input) {
+      this.hideSuggestions(index);
+      this.refreshStatusbar();
       return;
     }
 
     // 显示建议
     this.showSuggestions(value, index);
-    this.checkForDuplicateWords();
+    this.refreshStatusbar();
   }
 
   /**
@@ -154,36 +278,108 @@ export class MnemonicInput {
     if (value.length === 0) {
       toggleClass(input, CSS_CLASSES.VALID_WORD, false);
       toggleClass(input, CSS_CLASSES.INVALID_WORD, false);
-      return;
-    }
-
-    if (isValidBIP39Word(BIP39_WORDLIST, value)) {
+    } else if (isValidBIP39Word(value)) {
       toggleClass(input, CSS_CLASSES.INVALID_WORD, false);
       toggleClass(input, CSS_CLASSES.VALID_WORD, true);
     } else {
       // 只标红提示，不清空用户输入（清空会导致用户正在抄录的内容被静默删除）
       toggleClass(input, CSS_CLASSES.VALID_WORD, false);
       toggleClass(input, CSS_CLASSES.INVALID_WORD, true);
-      this.showInvalidWordError(index);
     }
 
-    this.checkForDuplicateWords();
+    this.refreshStatusbar();
   }
 
   /**
-   * 显示无效单词错误
-   * @param {number} index - 输入框索引
+   * 更新状态条：错误（无效词）> 警告（重复词）> 正常（全部有效）> 静默
+   * 固定高度，状态切换不引起布局抖动
    */
-  showInvalidWordError(index) {
-    const errorAlert = getElement(SELECTORS.INPUT_ERROR_ALERT);
-    if (errorAlert) {
-      errorAlert.textContent = `第 ${index} 个单词不是有效的 BIP39 单词，请从建议列表中选择有效的单词。`;
-      toggleElement(errorAlert, true);
+  refreshStatusbar() {
+    let firstInvalidIndex = -1;
+    const filled = [];
 
-      setTimeout(() => {
-        toggleElement(errorAlert, false);
-      }, UI_CONFIG.DELAY.AUTO_HIDE_ALERT);
+    for (let i = 1; i <= this.wordCount; i++) {
+      const input = getElement(SELECTORS.WORD_INPUT(i));
+      if (!input) continue;
+
+      const value = input.value.trim();
+      if (!value) continue;
+
+      filled.push(value.toLowerCase());
+      if (firstInvalidIndex === -1 && !isValidBIP39Word(value)) {
+        firstInvalidIndex = i;
+      }
     }
+
+    if (firstInvalidIndex !== -1) {
+      this.setStatusbar('error', `第 ${firstInvalidIndex} 个单词不是有效的 BIP39 单词，请修正后再生成分片`);
+      return;
+    }
+
+    const duplicates = new Set();
+    const seen = new Set();
+    for (const word of filled) {
+      if (seen.has(word)) {
+        duplicates.add(word);
+      } else {
+        seen.add(word);
+      }
+    }
+
+    this.updateDuplicateStyling(duplicates);
+
+    if (duplicates.size > 0) {
+      this.setStatusbar('warn', `检测到重复单词：${Array.from(duplicates).join('、')}（BIP39 允许重复，请核对输入）`);
+      return;
+    }
+
+    if (filled.length === this.wordCount) {
+      this.setStatusbar('ok', `${this.wordCount} 个单词全部有效`);
+      return;
+    }
+
+    this.setStatusbar(null);
+  }
+
+  /**
+   * 更新重复单词的字段样式
+   * @param {Set} duplicates - 重复单词集合
+   */
+  updateDuplicateStyling(duplicates) {
+    for (let i = 1; i <= this.wordCount; i++) {
+      const input = getElement(SELECTORS.WORD_INPUT(i));
+      if (!input) continue;
+
+      const word = input.value.trim().toLowerCase();
+      const isDuplicate = word && duplicates.has(word);
+      toggleClass(input, CSS_CLASSES.DUPLICATE_WORD, isDuplicate);
+    }
+  }
+
+  /**
+   * 设置状态条内容
+   * @param {string|null} kind - 'error' | 'warn' | 'ok' | null（静默）
+   * @param {string} [message] - 状态消息
+   */
+  setStatusbar(kind, message) {
+    const bar = getElement(SELECTORS.WORDS_STATUSBAR);
+    if (!bar) return;
+
+    clearElement(bar);
+    bar.className = 'statusbar';
+
+    if (!kind) return;
+
+    bar.classList.add(`is-${kind}`);
+
+    const iconName = kind === 'ok' ? 'i-check' : 'i-warning';
+    const icon = createElement('span', ['statusbar-icon']);
+    icon.innerHTML = `<svg class="icon" aria-hidden="true"><use href="#${iconName}"/></svg>`;
+
+    const text = createElement('span', ['statusbar-text']);
+    text.textContent = message;
+
+    bar.append(icon, text);
   }
 
   /**
@@ -192,21 +388,11 @@ export class MnemonicInput {
    * @returns {string[]} 匹配的单词列表
    */
   searchWords(query) {
-    if (!query || query.length === 0) {
+    if (!query) {
       return [];
     }
 
-    // 使用缓存
-    if (this.suggestionCache.has(query)) {
-      return this.suggestionCache.get(query);
-    }
-
-    const matches = BIP39_WORDLIST.filter((word) => word.toLowerCase().startsWith(query)).slice(0, UI_CONFIG.SUGGESTIONS.MAX_SUGGESTIONS);
-
-    // 缓存结果
-    this.suggestionCache.set(query, matches);
-
-    return matches;
+    return BIP39_WORDLIST.filter((word) => word.startsWith(query)).slice(0, UI_CONFIG.SUGGESTIONS.MAX_SUGGESTIONS);
   }
 
   /**
@@ -223,38 +409,34 @@ export class MnemonicInput {
       return;
     }
 
-    clearElement(suggestionsDiv);
-    // 直接设置显示为 block，而不是使用 toggleElement
-    suggestionsDiv.style.display = 'block';
+    // 同一时间只保留一处联想
+    this.hideAllSuggestions(wordIndex);
 
-    this.positionSuggestions(suggestionsDiv, wordIndex);
+    clearElement(suggestionsDiv);
+    // CSS 对联想列表默认 display:none，toggleElement 置空内联样式无法显示，
+    // 必须显式设为 block 才能覆盖类默认值
+    suggestionsDiv.style.display = 'block';
     this.renderSuggestionItems(suggestionsDiv, suggestions, wordIndex);
+
+    this.suggestionState.set(wordIndex, { values: suggestions, activeIndex: 0 });
+
+    const input = getElement(SELECTORS.WORD_INPUT(wordIndex));
+    input.setAttribute('aria-expanded', 'true');
+    input.setAttribute('aria-activedescendant', `${input.id}-opt-0`);
   }
 
   /**
-   * 定位建议列表
-   * @param {Element} suggestionsDiv - 建议容器元素
-   * @param {number} wordIndex - 输入框索引
+   * 判断输入框是否靠近词表网格右侧边缘
+   * @param {Element} input - 输入框元素
+   * @returns {boolean} 是否靠近右侧
    */
-  positionSuggestions(suggestionsDiv, wordIndex) {
-    const input = getElement(SELECTORS.WORD_INPUT(wordIndex));
-    if (!input) return;
+  isInputNearRightEdge(input) {
+    const grid = input.closest('.words-grid');
+    if (!grid) return false;
 
-    // 绝对定位于输入框下方，靠近右侧边缘时右对齐避免溢出
-    const containerRect = input.closest('.words-grid').getBoundingClientRect();
+    const gridRect = grid.getBoundingClientRect();
     const inputRect = input.getBoundingClientRect();
-    const inputRelativeLeft = inputRect.left - containerRect.left;
-    const containerWidth = containerRect.width;
-    const isNearRightEdge = inputRelativeLeft > containerWidth * 0.6;
-
-    Object.assign(suggestionsDiv.style, {
-      position: 'absolute',
-      top: '100%',
-      zIndex: '99999',
-      background: 'transparent',
-      padding: '8px 0 0 0',
-      textAlign: isNearRightEdge ? 'right' : 'left',
-    });
+    return inputRect.left - gridRect.left > gridRect.width * 0.6;
   }
 
   /**
@@ -266,24 +448,14 @@ export class MnemonicInput {
   renderSuggestionItems(container, suggestions, wordIndex) {
     const suggestionsContainer = createElement('div', ['suggestions-container']);
 
-    // 检查输入框是否位于右侧
+    // 靠近右侧时建议词块靠右排列
     const input = getElement(SELECTORS.WORD_INPUT(wordIndex));
-    const containerRect = input.closest('.words-grid').getBoundingClientRect();
-    const inputRect = input.getBoundingClientRect();
-    const inputRelativeLeft = inputRect.left - containerRect.left;
-    const containerWidth = containerRect.width;
-    const isNearRightEdge = inputRelativeLeft > containerWidth * 0.6;
+    if (input) {
+      suggestionsContainer.style.justifyContent = this.isInputNearRightEdge(input) ? 'flex-end' : 'flex-start';
+    }
 
-    Object.assign(suggestionsContainer.style, {
-      display: 'flex',
-      gap: '6px',
-      justifyContent: isNearRightEdge ? 'flex-end' : 'flex-start',
-      flexWrap: 'nowrap',
-      alignItems: 'center',
-    });
-
-    suggestions.forEach((word) => {
-      const suggestionItem = this.createSuggestionItem(word, wordIndex);
+    suggestions.forEach((word, i) => {
+      const suggestionItem = this.createSuggestionItem(word, wordIndex, i);
       suggestionsContainer.appendChild(suggestionItem);
     });
 
@@ -294,26 +466,45 @@ export class MnemonicInput {
    * 创建建议项
    * @param {string} word - 单词
    * @param {number} wordIndex - 输入框索引
+   * @param {number} itemIndex - 建议项索引
    * @returns {Element} 建议项元素
    */
-  createSuggestionItem(word, wordIndex) {
-    const item = createElement('div', ['suggestion-item']);
+  createSuggestionItem(word, wordIndex, itemIndex) {
+    const item = createElement('div', ['suggestion-item', itemIndex === 0 ? 'is-active' : null], {
+      id: `word${wordIndex}-opt-${itemIndex}`,
+      role: 'option',
+      'aria-selected': itemIndex === 0 ? 'true' : 'false',
+    });
     item.textContent = word;
 
-    Object.assign(item.style, {
-      padding: '6px 12px',
-      fontSize: '0.85rem',
-      whiteSpace: 'nowrap',
-      flexShrink: '0',
-      color: 'white',
-      fontWeight: '500',
-      borderRadius: '6px',
-      background: '#6fa8dc',
-    });
-
+    // 鼠标按下时阻止输入框失焦，保证点击选中可靠
+    addEvent(item, 'mousedown', (e) => e.preventDefault());
     addEvent(item, 'click', () => this.selectWord(word, wordIndex));
 
     return item;
+  }
+
+  /**
+   * 移动联想高亮项
+   * @param {number} wordIndex - 输入框索引
+   * @param {number} delta - 移动方向（1 向下 / -1 向上）
+   */
+  moveActiveSuggestion(wordIndex, delta) {
+    const state = this.suggestionState.get(wordIndex);
+    if (!state || state.values.length === 0) return;
+
+    const count = state.values.length;
+    state.activeIndex = (state.activeIndex + delta + count) % count;
+
+    const input = getElement(SELECTORS.WORD_INPUT(wordIndex));
+    const suggestionsDiv = getElement(SELECTORS.SUGGESTIONS(wordIndex));
+
+    suggestionsDiv.querySelectorAll('.suggestion-item').forEach((item, i) => {
+      toggleClass(item, 'is-active', i === state.activeIndex);
+      item.setAttribute('aria-selected', i === state.activeIndex ? 'true' : 'false');
+    });
+
+    input.setAttribute('aria-activedescendant', `${input.id}-opt-${state.activeIndex}`);
   }
 
   /**
@@ -323,19 +514,17 @@ export class MnemonicInput {
    */
   selectWord(word, wordIndex) {
     const input = getElement(SELECTORS.WORD_INPUT(wordIndex));
-    if (!input) return;
 
     input.value = word;
     toggleClass(input, CSS_CLASSES.INVALID_WORD, false);
     toggleClass(input, CSS_CLASSES.VALID_WORD, true);
 
     this.hideSuggestions(wordIndex);
-    this.checkForDuplicateWords();
+    this.refreshStatusbar();
 
     // 自动跳转到下一个输入框
     if (wordIndex < this.wordCount) {
-      const nextInput = getElement(SELECTORS.WORD_INPUT(wordIndex + 1));
-      nextInput?.focus();
+      getElement(SELECTORS.WORD_INPUT(wordIndex + 1)).focus();
     }
   }
 
@@ -345,127 +534,44 @@ export class MnemonicInput {
    */
   hideSuggestions(wordIndex) {
     const suggestionsDiv = getElement(SELECTORS.SUGGESTIONS(wordIndex));
-    if (suggestionsDiv) {
-      toggleElement(suggestionsDiv, false);
-      clearElement(suggestionsDiv);
+    toggleElement(suggestionsDiv, false);
+    clearElement(suggestionsDiv);
+
+    this.suggestionState.delete(wordIndex);
+
+    const input = getElement(SELECTORS.WORD_INPUT(wordIndex));
+    input.setAttribute('aria-expanded', 'false');
+    input.removeAttribute('aria-activedescendant');
+  }
+
+  /**
+   * 收起所有输入框的联想（点击外部 / 全局唯一联想约束）
+   * @param {number} [exceptIndex] - 保留联想的输入框索引
+   */
+  hideAllSuggestions(exceptIndex) {
+    for (let i = 1; i <= this.wordCount; i++) {
+      if (i !== exceptIndex) {
+        this.hideSuggestions(i);
+      }
     }
   }
 
   /**
-   * 检查重复单词
+   * 清除全部输入与状态（页脚"擦除所有数据"使用）
    */
-  checkForDuplicateWords() {
-    const words = [];
-    const duplicates = new Set();
-    const duplicatePositions = new Map();
-
-    // 收集所有输入的单词
+  clearAll() {
     for (let i = 1; i <= this.wordCount; i++) {
       const input = getElement(SELECTORS.WORD_INPUT(i));
       if (!input) continue;
 
-      const word = input.value.trim().toLowerCase();
-      if (word) {
-        if (words.includes(word)) {
-          duplicates.add(word);
-          if (!duplicatePositions.has(word)) {
-            duplicatePositions.set(word, []);
-          }
-          duplicatePositions.get(word).push(i);
-        } else {
-          words.push(word);
-        }
-      }
+      input.value = '';
+      toggleClass(input, CSS_CLASSES.VALID_WORD, false);
+      toggleClass(input, CSS_CLASSES.INVALID_WORD, false);
+      toggleClass(input, CSS_CLASSES.DUPLICATE_WORD, false);
+      this.hideSuggestions(i);
     }
 
-    this.updateDuplicateAlert(duplicates, duplicatePositions);
-    this.updateDuplicateStyling(duplicates);
-  }
-
-  /**
-   * 更新重复单词提示
-   * @param {Set} duplicates - 重复单词集合
-   * @param {Map} duplicatePositions - 重复单词位置映射
-   */
-  updateDuplicateAlert(duplicates, duplicatePositions) {
-    const duplicateAlert = getElement(SELECTORS.DUPLICATE_ALERT);
-    if (!duplicateAlert) return;
-
-    // 清空之前的内容
-    duplicateAlert.innerHTML = '';
-
-    if (duplicates.size > 0) {
-      // 创建安全的DOM结构，防止XSS攻击
-      const strongTitle = document.createElement('strong');
-      strongTitle.textContent = '检测到重复单词：';
-      duplicateAlert.appendChild(strongTitle);
-
-      duplicateAlert.appendChild(document.createElement('br'));
-
-      for (const [word, positions] of duplicatePositions) {
-        const strongWord = document.createElement('strong');
-        strongWord.textContent = word;
-        duplicateAlert.appendChild(strongWord);
-
-        const positionText = document.createTextNode(`：位置 ${positions.join(', ')}`);
-        duplicateAlert.appendChild(positionText);
-
-        duplicateAlert.appendChild(document.createElement('br'));
-      }
-
-      const smallNote = document.createElement('small');
-      smallNote.textContent = 'BIP39 助记词允许出现重复单词，此提示仅用于提醒您核对输入是否正确。';
-      duplicateAlert.appendChild(smallNote);
-
-      toggleElement(duplicateAlert, true);
-    } else {
-      toggleElement(duplicateAlert, false);
-    }
-  }
-
-  /**
-   * 更新重复单词样式
-   * @param {Set} duplicates - 重复单词集合
-   */
-  updateDuplicateStyling(duplicates) {
-    for (let i = 1; i <= this.wordCount; i++) {
-      const input = getElement(SELECTORS.WORD_INPUT(i));
-      if (!input) continue;
-
-      const word = input.value.trim().toLowerCase();
-      const isDuplicate = word && duplicates.has(word);
-
-      toggleClass(input, CSS_CLASSES.DUPLICATE_WORD, isDuplicate);
-    }
-  }
-
-  /**
-   * 清除自动完成定时器
-   * @param {number} index - 输入框索引
-   */
-  clearAutocompleteTimeout(index) {
-    if (this.autocompleteTimeouts.has(index)) {
-      clearTimeout(this.autocompleteTimeouts.get(index));
-      this.autocompleteTimeouts.delete(index);
-    }
-  }
-
-  /**
-   * 获取所有输入的单词
-   * @returns {string[]} 单词数组
-   */
-  getWords() {
-    const words = [];
-    for (let i = 1; i <= this.wordCount; i++) {
-      const input = getElement(SELECTORS.WORD_INPUT(i));
-      if (input) {
-        const word = input.value.trim();
-        if (word) {
-          words.push(word);
-        }
-      }
-    }
-    return words;
+    this.setStatusbar(null);
   }
 
   /**
@@ -488,7 +594,7 @@ export class MnemonicInput {
         break;
       }
 
-      if (!isValidBIP39Word(BIP39_WORDLIST, word)) {
+      if (!isValidBIP39Word(word)) {
         hasInvalidWord = true;
         invalidWordIndex = i;
         break;
@@ -504,19 +610,5 @@ export class MnemonicInput {
       hasInvalidWord,
       invalidWordIndex,
     };
-  }
-
-  /**
-   * 清理资源
-   */
-  destroy() {
-    // 清理所有定时器
-    this.autocompleteTimeouts.forEach((timeoutId) => {
-      clearTimeout(timeoutId);
-    });
-    this.autocompleteTimeouts.clear();
-
-    // 清理缓存
-    this.suggestionCache.clear();
   }
 }

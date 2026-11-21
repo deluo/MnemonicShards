@@ -109,7 +109,8 @@ src/
 │   ├── MnemonicInput.js     # 助记词输入组件（支持自动完成、验证、重复检测）
 │   ├── ShareManager.js      # 分片管理组件（处理分片生成和恢复）
 │   ├── RecoveryTabManager.js # 恢复标签管理器（处理粘贴/上传标签和文件处理）
-│   └── PasswordDialog.js    # 密码对话框组件（处理加密/解密密码输入）
+│   ├── ShardVisualizer.js   # 分片可视化组件（k-of-n 阈值示意）
+│   └── Toast.js             # 全局瞬态消息组件（成功/错误/信息提示）
 ├── utils/                   # 工具函数
 │   ├── dom.js              # DOM 操作工具（安全的元素获取和创建）
 │   ├── validation.js       # 验证工具（BIP39单词验证）
@@ -129,7 +130,7 @@ src/
 ├── scripts/                # 回归验证脚本
 │   └── verify-bip39.mjs    # 词表/校验和/分片往返测试（npm run verify）
 └── dist/                   # 构建产物（入库归档，见「产物归档策略」）
-    └── index.html          # 生产版本（单文件部署）
+    └── mnemonic-shards-offline.html  # 生产版本（单文件离线部署）
 ```
 
 ### 🏗️ 架构特点
