@@ -88,18 +88,18 @@ open dist/mnemonic-shards-offline.html
 
 ### 使用前：校验产物完整性
 
-钓鱼者分发一个"同款"页面即可窃取你输入的助记词。**任何来源拿到的副本，使用前先校验哈希**：
+钓鱼者分发一个"同款"页面即可窃取你输入的助记词。**任何来源拿到的副本，使用前先校验哈希**——构建时自动生成 GNU 格式校验文件 `dist/SHA256SUMS.txt`（与产物一起入库、随发布附件分发）：
 
 ```bash
-shasum -a 256 mnemonic-shards-offline.html   # macOS/Linux
+# 仓库内（产物与校验文件同在 dist/ 目录）
+cd dist && shasum -a 256 -c SHA256SUMS.txt   # macOS/Linux
 # Windows PowerShell: Get-FileHash .\mnemonic-shards-offline.html -Algorithm SHA256
+#                     再与 SHA256SUMS.txt 中的哈希比对
+
+# 只有单个 HTML 文件时：与可信来源（本仓库或发布页）的 SHA256SUMS.txt 内容比对
 ```
 
-| 版本 | SHA-256 |
-| --- | --- |
-| v1.3.0 | `e70ee6b315619e9bbbec9c88f1910a38453f2f5c963a2f3c547b5f7ec9767dc7` |
-
-哈希以 git tag 对应提交为准，可独立复核：`git show v1.3.0:dist/mnemonic-shards-offline.html | shasum -a 256`
+校验文件本身也可能随产物一起被替换，因此哈希同时锚定在 git tag 对应的提交上，可独立复核：`git show v1.3.0:dist/mnemonic-shards-offline.html | shasum -a 256`
 
 ### 使用注意事项
 
@@ -113,9 +113,9 @@ shasum -a 256 mnemonic-shards-offline.html   # macOS/Linux
 
 ### 编译注意事项
 
-- **只在可信环境构建**：构建机失陷会直接产出窃取助记词的副本；对他人提供的产物，务必按上表校验哈希后再使用
-- **源码与产物一致**：改动源码后必须 `npm run release`（重建并暂存产物）再提交——pre-commit 钩子与 CI 会校验入库产物与源码构建逐字节一致，拦截过期或分叉的产物
-- **发布新版本时**：同步更新本节哈希表，打对应版本 tag 并用 `git show <tag>:dist/... | shasum -a 256` 复核，否则用户将无法校验新产物
+- **只在可信环境构建**：构建机失陷会直接产出窃取助记词的副本；对他人提供的产物，务必校验哈希后再使用
+- **源码与产物一致**：改动源码后必须 `npm run release`（重建并暂存产物与 SHA256SUMS.txt）再提交——pre-commit 钩子与 CI 会校验入库产物与源码构建逐字节一致，拦截过期或分叉的产物
+- **发布新版本时**：`npm run release` 会重建产物并同步生成 `dist/SHA256SUMS.txt`，提交后打对应版本 tag，并用 `git show <tag>:dist/... | shasum -a 256` 复核哈希一致
 - **依赖变更需人工确认**：依赖经 lockfile 锁定（`shamir-secret-sharing` 精确锁版，0.0.x 阶段 minor 即破坏性变更），升级依赖后重新走完整发布流程
 
 > 本工具仅供教育和研究目的使用。请自行承担使用风险，理解 Shamir Secret Sharing 的工作原理，使用前充分测试，并妥善保管生成的分片。
