@@ -116,7 +116,7 @@ cd dist && shasum -a 256 -c SHA256SUMS.txt   # macOS/Linux
 - **只在可信环境构建**：构建机失陷会直接产出窃取助记词的副本；对他人提供的产物，务必校验哈希后再使用
 - **源码与产物一致**：改动源码后必须 `npm run release`（重建并暂存产物与 SHA256SUMS.txt）再提交——pre-commit 钩子与 CI 会校验入库产物与源码构建逐字节一致，拦截过期或分叉的产物
 - **发布新版本时**：`npm run release` 会重建产物并同步生成 `dist/SHA256SUMS.txt`，提交后打对应版本 tag，并用 `git show <tag>:dist/... | shasum -a 256` 复核哈希一致
-- **依赖变更需人工确认**：依赖经 lockfile 锁定（`shamir-secret-sharing` 精确锁版，0.0.x 阶段 minor 即破坏性变更），升级依赖后重新走完整发布流程
+- **依赖变更需人工确认**：全部依赖精确锁版（含 devDeps——vite 版本直接影响产物字节；`shamir-secret-sharing` 处于 0.0.x 阶段，minor 即破坏性变更），升级统一走 Dependabot 显式 PR + 人工确认 + 完整发布流程（重建、更新 SHA256SUMS、打 tag），杜绝 `^` 范围与 `npm update` 带来的静默漂移
 
 > 本工具仅供教育和研究目的使用。请自行承担使用风险，理解 Shamir Secret Sharing 的工作原理，使用前充分测试，并妥善保管生成的分片。
 
