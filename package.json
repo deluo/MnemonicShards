@@ -41,7 +41,7 @@
     "shamir-secret-sharing": "0.0.4"
   },
   "devDependencies": {
-    "vite": "7.3.8",
+    "vite": "8.3.8",
     "vite-plugin-singlefile": "2.3.4"
   }
 }
