@@ -4,12 +4,47 @@
 
 // 应用信息
 export const APP_CONFIG = {
-  VERSION: '1.0.0',
+  VERSION: '1.2.0',
+};
+
+// BTC 地址派生配置（观察模式）
+export const DERIVATION_CONFIG = {
+  // 路径预设：扩展公钥版本字节决定 xpub/ypub/zpub 前缀，addressType 决定地址编码
+  PATH_PRESETS: [
+    {
+      id: 'native',
+      label: 'Native',
+      path: "m/84'/0'/0'",
+      addressType: 'p2wpkh',
+      extVersions: { private: 0x04b2430c, public: 0x04b24746 }, // zprv / zpub
+    },
+    {
+      id: 'nested',
+      label: 'Nested',
+      path: "m/49'/0'/0'",
+      addressType: 'p2sh-p2wpkh',
+      extVersions: { private: 0x049d7878, public: 0x049d7cb2 }, // yprv / ypub
+    },
+    {
+      id: 'legacy',
+      label: 'Legacy',
+      path: "m/44'/0'/0'",
+      addressType: 'p2pkh',
+      extVersions: { private: 0x0488ade4, public: 0x0488b21e }, // xprv / xpub
+    },
+  ],
+  DEFAULT_PRESET_ID: 'native',
+
+  // 地址展示：首尾高亮位数（bc1q 前缀恒定，8 位才能露出有区分度的字符）
+  ADDR_EDGE_CHARS: 8,
+  // 地址列表分页大小
+  ADDR_PAGE_SIZE: 10,
+  // zpub 显示态自动回遮蔽延迟（毫秒）
+  ZPUB_REMASK_DELAY: 60000,
 };
 
 // 助记词配置
 export const MNEMONIC_CONFIG = {
-  WORD_COUNTS: [12, 24],
   DEFAULT_WORD_COUNT: 12,
 };
 
@@ -31,8 +66,33 @@ export const SELECTORS = {
   // 模式切换
   MODE_SPLIT_BTN: '#modeSplitBtn',
   MODE_RECOVER_BTN: '#modeRecoverBtn',
+  MODE_OBSERVE_BTN: '#modeObserveBtn',
   MODE_SPLIT: '#splitMode',
   MODE_RECOVER: '#recoverMode',
+  MODE_OBSERVE: '#observeMode',
+
+  // 观察模式
+  OBS_WORDS_12_BTN: '#obsWords12',
+  OBS_WORDS_24_BTN: '#obsWords24',
+  OBS_WORDS_GRID: '#obsWordsGrid',
+  OBS_WORDS_STATUSBAR: '#obsWordsStatusbar',
+  OBS_PASSPHRASE: '#obsPassphrase',
+  PATH_PRESET_GROUP: '#pathPresetGroup',
+  DERIVE_BTN: '#deriveBtn',
+  OBSERVE_RESULT: '#observeResult',
+  OBSERVE_PATH_SUMMARY: '#observePathSummary',
+  OBSERVE_ADDRESS_LIST: '#observeAddressList',
+  SHOW_MORE_ADDRESSES_BTN: '#showMoreAddressesBtn',
+  ZPUB_TEXT: '#zpubText',
+  ZPUB_REVEAL_BTN: '#zpubRevealBtn',
+  ZPUB_COPY_BTN: '#zpubCopyBtn',
+  ZPUB_QR_BTN: '#zpubQrBtn',
+
+  // 二维码弹层
+  QR_MODAL: '#qrModal',
+  QR_MODAL_TITLE: '#qrModalTitle',
+  QR_CANVAS: '#qrCanvas',
+  QR_CLOSE_BTN: '#qrCloseBtn',
 
   // 分割模式
   WORDS_12_BTN: '#words12',
@@ -51,6 +111,11 @@ export const SELECTORS = {
   DOWNLOADED_COUNT: '#downloadedCount',
   TOTAL_COUNT: '#totalCount',
   THRESHOLD_DISPLAY: '#thresholdDisplay',
+
+  // 助记词指纹（抄写保管，与分片分开存放；恢复演练时比对）
+  FINGERPRINT_ROW: '#fingerprintRow',
+  FINGERPRINT_VALUE: '#fingerprintValue',
+  FINGERPRINT_COPY_BTN: '#fingerprintCopyBtn',
 
   // 加密导出
   ENABLE_ENCRYPTION: '#enableEncryption',
@@ -83,13 +148,15 @@ export const SELECTORS = {
   APPLY_DECRYPTION_BTN: '#applyDecryptionBtn',
   SKIP_DECRYPTION_BTN: '#skipDecryptionBtn',
 
+  // 恢复演练模式（不显示助记词，只比对指纹）
+  DRILL_MODE_TOGGLE: '#drillModeToggle',
+  DRILL_FIELDS: '#drillFingerprintFields',
+  DRILL_FINGERPRINT_INPUT: '#drillFingerprintInput',
+  DRILL_FINGERPRINT_NOTE: '#drillFingerprintNote',
+
   // 页脚
   WIPE_ALL_BTN: '#wipeAllBtn',
   VERSION_LABEL: '#versionLabel',
-
-  // 动态生成
-  WORD_INPUT: (index) => `#word${index}`,
-  SUGGESTIONS: (index) => `#suggestions${index}`,
 };
 
 // CSS类名
@@ -101,6 +168,9 @@ export const CSS_CLASSES = {
   VALID_WORD: 'valid-word',
   INVALID_WORD: 'invalid-word',
   DUPLICATE_WORD: 'duplicate-word',
+
+  // 敏感信息遮蔽（zpub 等默认模糊展示）
+  MASKED: 'is-blurred',
 
   // 按钮状态
   COPIED: 'copied',

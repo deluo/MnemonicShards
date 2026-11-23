@@ -1,7 +1,10 @@
 /**
  * 助记词输入组件
  * 负责处理助记词输入、验证和自动完成功能
- * 错误与提示通过固定高度状态条（#wordsStatusbar）展示，避免布局抖动
+ * 错误与提示通过固定高度状态条展示，避免布局抖动
+ *
+ * 组件通过构造选项参数化 DOM 标识，支持同页多实例：
+ * 分割模式使用默认值（无前缀全局 ID），观察模式使用 'obs-' 前缀避免 ID 冲突
  */
 
 import { getElement, createElement, toggleElement, toggleClass, addEvent, clearElement } from '../utils/dom.js';
@@ -15,13 +18,29 @@ export class MnemonicInput {
   /**
    * @param {number} wordCount - 初始助记词数量
    * @param {Object} [options] - 可选配置
-   * @param {Function} [options.onWordCountAutoSwitch] - 粘贴完整助记词后自动切换词数时的回调
+   * @param {Array<{count: number, selector: string}>} [options.wordCountButtons] - 词数切换按钮
+   *   （选中态由组件自己维护，main 不再重复持有词数状态）
+   * @param {string} [options.idPrefix] - 输入框/联想列表元素 ID 前缀，多实例时用于避免 ID 冲突
+   * @param {string} [options.wordsGridSelector] - 词表网格容器选择器
+   * @param {string} [options.statusbarSelector] - 状态条选择器
+   * @param {string} [options.primaryActionSelector] - 末格回车触发的主动作按钮选择器
+   * @param {string} [options.actionNoun] - 状态条文案中的动作名称（如 '生成分片' | '派生地址'）
    */
   constructor(wordCount = 12, options = {}) {
     this.wordCount = wordCount;
-    this.onWordCountAutoSwitch = options.onWordCountAutoSwitch;
+    this.wordCountButtons = options.wordCountButtons ?? [];
+    this.idPrefix = options.idPrefix ?? '';
+    this.wordsGridSelector = options.wordsGridSelector ?? SELECTORS.WORDS_GRID;
+    this.statusbarSelector = options.statusbarSelector ?? SELECTORS.WORDS_STATUSBAR;
+    this.primaryActionSelector = options.primaryActionSelector ?? SELECTORS.GENERATE_BTN;
+    this.actionNoun = options.actionNoun ?? '生成分片';
     // 联想状态：输入框索引 -> { values: string[], activeIndex: number }
     this.suggestionState = new Map();
+
+    for (const { count, selector } of this.wordCountButtons) {
+      addEvent(getElement(selector), 'click', () => this.setWordCount(count));
+    }
+    this.syncWordCountButtons();
 
     // 点击输入区外时立即收起所有联想
     this.outsidePointerDownHandler = (e) => {
@@ -32,25 +51,63 @@ export class MnemonicInput {
   }
 
   /**
+   * 同步词数切换按钮选中态
+   */
+  syncWordCountButtons() {
+    for (const { count, selector } of this.wordCountButtons) {
+      toggleClass(getElement(selector), CSS_CLASSES.ACTIVE, this.wordCount === count);
+    }
+  }
+
+  /**
+   * 获取指定序号输入框的选择器（含实例前缀）
+   * @param {number} index - 输入框索引
+   * @returns {string} CSS 选择器
+   */
+  wordInputSelector(index) {
+    return `#${this.idPrefix}word${index}`;
+  }
+
+  /**
+   * 获取指定序号联想列表的选择器（含实例前缀）
+   * @param {number} index - 输入框索引
+   * @returns {string} CSS 选择器
+   */
+  suggestionsSelector(index) {
+    return `#${this.idPrefix}suggestions${index}`;
+  }
+
+  /**
    * 设置助记词数量
    * @param {number} count - 助记词数量
    */
   setWordCount(count) {
     this.wordCount = count;
     this.renderInputs();
+    this.syncWordCountButtons();
+  }
+
+  /**
+   * 标红并聚焦指定序号的无效输入框
+   * @param {number} index - 输入框索引
+   */
+  focusInvalidInput(index) {
+    const input = getElement(this.wordInputSelector(index));
+    toggleClass(input, CSS_CLASSES.INVALID_WORD, true);
+    input.focus();
   }
 
   /**
    * 渲染输入框
    */
   renderInputs() {
-    const container = getElement(SELECTORS.WORDS_GRID);
+    const container = getElement(this.wordsGridSelector);
     if (!container) return;
 
     // 保存当前输入的值
     const currentValues = new Map();
     for (let i = 1; i <= this.wordCount; i++) {
-      const input = getElement(SELECTORS.WORD_INPUT(i));
+      const input = getElement(this.wordInputSelector(i));
       if (input && input.value.trim()) {
         currentValues.set(i, input.value.trim());
       }
@@ -64,12 +121,10 @@ export class MnemonicInput {
 
       // 恢复之前输入的值
       if (currentValues.has(i)) {
-        const input = getElement(SELECTORS.WORD_INPUT(i));
-        if (input) {
-          input.value = currentValues.get(i);
-          // 恢复验证样式
-          this.validateAndStyleInput(input, i);
-        }
+        const input = getElement(this.wordInputSelector(i));
+        input.value = currentValues.get(i);
+        // 恢复验证样式
+        this.validateAndStyleInput(input, i);
       }
     }
 
@@ -86,9 +141,10 @@ export class MnemonicInput {
 
     const inputContainer = createElement('div', ['input-wrapper']);
 
+    const inputId = `${this.idPrefix}word${index}`;
     const input = createElement('input', [], {
       type: 'text',
-      id: `word${index}`,
+      id: inputId,
       placeholder: '',
       autocomplete: 'off',
       // 关闭拼写检查与移动端自动大写/纠正，避免输入被静默改写
@@ -99,16 +155,16 @@ export class MnemonicInput {
       role: 'combobox',
       'aria-autocomplete': 'list',
       'aria-expanded': 'false',
-      'aria-controls': `suggestions${index}`,
+      'aria-controls': `${this.idPrefix}suggestions${index}`,
     });
 
     const label = createElement('label', [], {
-      for: `word${index}`,
+      for: inputId,
     });
     label.textContent = `${index}. 单词`;
 
     const suggestionsDiv = createElement('div', ['autocomplete-suggestions'], {
-      id: `suggestions${index}`,
+      id: `${this.idPrefix}suggestions${index}`,
       role: 'listbox',
     });
 
@@ -189,11 +245,11 @@ export class MnemonicInput {
     if (e.key !== 'Enter') return;
     e.preventDefault();
 
-    const nextInput = getElement(SELECTORS.WORD_INPUT(index + 1));
+    const nextInput = getElement(this.wordInputSelector(index + 1));
     if (nextInput) {
       nextInput.focus();
     } else {
-      getElement(SELECTORS.GENERATE_BTN).click();
+      getElement(this.primaryActionSelector).click();
     }
   }
 
@@ -218,13 +274,13 @@ export class MnemonicInput {
     e.preventDefault();
 
     // 粘贴 12/24 个单词时自动切换到对应的输入模式
-    if (words.length !== this.wordCount && (words.length === 12 || words.length === 24) && this.onWordCountAutoSwitch) {
-      this.onWordCountAutoSwitch(words.length);
+    if (words.length !== this.wordCount && (words.length === 12 || words.length === 24)) {
+      this.setWordCount(words.length);
     }
 
     const count = Math.min(words.length, this.wordCount);
     for (let i = 1; i <= count; i++) {
-      const input = getElement(SELECTORS.WORD_INPUT(i));
+      const input = getElement(this.wordInputSelector(i));
       if (!input) break;
       input.value = words[i - 1];
       this.validateAndStyleInput(input, i);
@@ -237,7 +293,7 @@ export class MnemonicInput {
 
     // 聚焦到下一个未填写的输入框，方便继续输入或补齐
     const nextIndex = Math.min(count + 1, this.wordCount);
-    getElement(SELECTORS.WORD_INPUT(nextIndex))?.focus();
+    getElement(this.wordInputSelector(nextIndex))?.focus();
     this.refreshStatusbar();
   }
 
@@ -299,7 +355,7 @@ export class MnemonicInput {
     const filled = [];
 
     for (let i = 1; i <= this.wordCount; i++) {
-      const input = getElement(SELECTORS.WORD_INPUT(i));
+      const input = getElement(this.wordInputSelector(i));
       if (!input) continue;
 
       const value = input.value.trim();
@@ -312,7 +368,7 @@ export class MnemonicInput {
     }
 
     if (firstInvalidIndex !== -1) {
-      this.setStatusbar('error', `第 ${firstInvalidIndex} 个单词不是有效的 BIP39 单词，请修正后再生成分片`);
+      this.setStatusbar('error', `第 ${firstInvalidIndex} 个单词不是有效的 BIP39 单词，请修正后再${this.actionNoun}`);
       return;
     }
 
@@ -347,7 +403,7 @@ export class MnemonicInput {
    */
   updateDuplicateStyling(duplicates) {
     for (let i = 1; i <= this.wordCount; i++) {
-      const input = getElement(SELECTORS.WORD_INPUT(i));
+      const input = getElement(this.wordInputSelector(i));
       if (!input) continue;
 
       const word = input.value.trim().toLowerCase();
@@ -362,7 +418,7 @@ export class MnemonicInput {
    * @param {string} [message] - 状态消息
    */
   setStatusbar(kind, message) {
-    const bar = getElement(SELECTORS.WORDS_STATUSBAR);
+    const bar = getElement(this.statusbarSelector);
     if (!bar) return;
 
     clearElement(bar);
@@ -402,7 +458,7 @@ export class MnemonicInput {
    */
   showSuggestions(query, wordIndex) {
     const suggestions = this.searchWords(query);
-    const suggestionsDiv = getElement(SELECTORS.SUGGESTIONS(wordIndex));
+    const suggestionsDiv = getElement(this.suggestionsSelector(wordIndex));
 
     if (!suggestionsDiv || suggestions.length === 0) {
       this.hideSuggestions(wordIndex);
@@ -420,7 +476,7 @@ export class MnemonicInput {
 
     this.suggestionState.set(wordIndex, { values: suggestions, activeIndex: 0 });
 
-    const input = getElement(SELECTORS.WORD_INPUT(wordIndex));
+    const input = getElement(this.wordInputSelector(wordIndex));
     input.setAttribute('aria-expanded', 'true');
     input.setAttribute('aria-activedescendant', `${input.id}-opt-0`);
   }
@@ -449,7 +505,7 @@ export class MnemonicInput {
     const suggestionsContainer = createElement('div', ['suggestions-container']);
 
     // 靠近右侧时建议词块靠右排列
-    const input = getElement(SELECTORS.WORD_INPUT(wordIndex));
+    const input = getElement(this.wordInputSelector(wordIndex));
     if (input) {
       suggestionsContainer.style.justifyContent = this.isInputNearRightEdge(input) ? 'flex-end' : 'flex-start';
     }
@@ -471,7 +527,7 @@ export class MnemonicInput {
    */
   createSuggestionItem(word, wordIndex, itemIndex) {
     const item = createElement('div', ['suggestion-item', itemIndex === 0 ? 'is-active' : null], {
-      id: `word${wordIndex}-opt-${itemIndex}`,
+      id: `${this.idPrefix}word${wordIndex}-opt-${itemIndex}`,
       role: 'option',
       'aria-selected': itemIndex === 0 ? 'true' : 'false',
     });
@@ -496,8 +552,8 @@ export class MnemonicInput {
     const count = state.values.length;
     state.activeIndex = (state.activeIndex + delta + count) % count;
 
-    const input = getElement(SELECTORS.WORD_INPUT(wordIndex));
-    const suggestionsDiv = getElement(SELECTORS.SUGGESTIONS(wordIndex));
+    const input = getElement(this.wordInputSelector(wordIndex));
+    const suggestionsDiv = getElement(this.suggestionsSelector(wordIndex));
 
     suggestionsDiv.querySelectorAll('.suggestion-item').forEach((item, i) => {
       toggleClass(item, 'is-active', i === state.activeIndex);
@@ -513,7 +569,7 @@ export class MnemonicInput {
    * @param {number} wordIndex - 输入框索引
    */
   selectWord(word, wordIndex) {
-    const input = getElement(SELECTORS.WORD_INPUT(wordIndex));
+    const input = getElement(this.wordInputSelector(wordIndex));
 
     input.value = word;
     toggleClass(input, CSS_CLASSES.INVALID_WORD, false);
@@ -524,7 +580,7 @@ export class MnemonicInput {
 
     // 自动跳转到下一个输入框
     if (wordIndex < this.wordCount) {
-      getElement(SELECTORS.WORD_INPUT(wordIndex + 1)).focus();
+      getElement(this.wordInputSelector(wordIndex + 1)).focus();
     }
   }
 
@@ -533,13 +589,13 @@ export class MnemonicInput {
    * @param {number} wordIndex - 输入框索引
    */
   hideSuggestions(wordIndex) {
-    const suggestionsDiv = getElement(SELECTORS.SUGGESTIONS(wordIndex));
+    const suggestionsDiv = getElement(this.suggestionsSelector(wordIndex));
     toggleElement(suggestionsDiv, false);
     clearElement(suggestionsDiv);
 
     this.suggestionState.delete(wordIndex);
 
-    const input = getElement(SELECTORS.WORD_INPUT(wordIndex));
+    const input = getElement(this.wordInputSelector(wordIndex));
     input.setAttribute('aria-expanded', 'false');
     input.removeAttribute('aria-activedescendant');
   }
@@ -561,7 +617,7 @@ export class MnemonicInput {
    */
   clearAll() {
     for (let i = 1; i <= this.wordCount; i++) {
-      const input = getElement(SELECTORS.WORD_INPUT(i));
+      const input = getElement(this.wordInputSelector(i));
       if (!input) continue;
 
       input.value = '';
@@ -585,7 +641,7 @@ export class MnemonicInput {
     let invalidWordIndex = -1;
 
     for (let i = 1; i <= this.wordCount; i++) {
-      const input = getElement(SELECTORS.WORD_INPUT(i));
+      const input = getElement(this.wordInputSelector(i));
       if (!input) continue;
 
       const word = input.value.trim();

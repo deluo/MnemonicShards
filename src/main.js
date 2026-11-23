@@ -1,14 +1,16 @@
 /**
  * MnemonicShards - 主应用文件
- * 组件化入口：分割 / 恢复 / 全局擦除
+ * 组件化入口：分割 / 恢复 / 观察 / 全局擦除
  */
 
 import { MnemonicInput } from './components/MnemonicInput.js';
 import { ShareManager } from './components/ShareManager.js';
 import { RecoveryTabManager } from './components/RecoveryTabManager.js';
+import { AddressWatcher } from './components/AddressWatcher.js';
 import { ShardVisualizer } from './components/ShardVisualizer.js';
 import { Toast } from './components/Toast.js';
 import { getElement, addEvent, toggleClass, setText } from './utils/dom.js';
+import { bindTwoStepConfirm } from './utils/helpers.js';
 import { MNEMONIC_CONFIG, SELECTORS, CSS_CLASSES, APP_CONFIG } from './constants/index.js';
 
 /**
@@ -17,16 +19,33 @@ import { MNEMONIC_CONFIG, SELECTORS, CSS_CLASSES, APP_CONFIG } from './constants
 class MnemonicSplitApp {
   constructor() {
     this.mnemonicInput = new MnemonicInput(MNEMONIC_CONFIG.DEFAULT_WORD_COUNT, {
-      // 粘贴 12/24 词助记词时自动切换输入模式
-      onWordCountAutoSwitch: (count) => this.setWordCount(count),
+      // 12/24 词数切换按钮由组件自己管理（含粘贴完整助记词后的自动切换）
+      wordCountButtons: [
+        { count: 12, selector: SELECTORS.WORDS_12_BTN },
+        { count: 24, selector: SELECTORS.WORDS_24_BTN },
+      ],
     });
     this.shareManager = new ShareManager({
       // 助记词相关的校验错误展示在输入状态条上
       onWordError: (message) => this.mnemonicInput.setStatusbar('error', message),
     });
     this.recoveryTabManager = new RecoveryTabManager();
-    this.currentWordCount = MNEMONIC_CONFIG.DEFAULT_WORD_COUNT;
-    this.wipeDisarmTimer = null;
+    // 观察模式：独立助记词输入实例（'obs-' 前缀避免 ID 冲突）
+    this.observeInput = new MnemonicInput(MNEMONIC_CONFIG.DEFAULT_WORD_COUNT, {
+      wordCountButtons: [
+        { count: 12, selector: SELECTORS.OBS_WORDS_12_BTN },
+        { count: 24, selector: SELECTORS.OBS_WORDS_24_BTN },
+      ],
+      idPrefix: 'obs-',
+      wordsGridSelector: SELECTORS.OBS_WORDS_GRID,
+      statusbarSelector: SELECTORS.OBS_WORDS_STATUSBAR,
+      primaryActionSelector: SELECTORS.DERIVE_BTN,
+      actionNoun: '派生地址',
+    });
+    this.addressWatcher = new AddressWatcher({
+      // 派生前的校验错误展示在观察状态条上
+      onError: (message) => this.observeInput.setStatusbar('error', message),
+    });
 
     // 恢复结果"擦除"时同步清理恢复侧输入
     this.shareManager.onWipeRecovery = () => this.recoveryTabManager.clearAll();
@@ -40,10 +59,11 @@ class MnemonicSplitApp {
   init() {
     this.setupEventListeners();
     this.updateThresholdOptions();
-    this.updateWordCountButtons();
     this.mnemonicInput.renderInputs(); // 初始化输入框
+    this.observeInput.renderInputs();
     setText(getElement(SELECTORS.VERSION_LABEL), `v${APP_CONFIG.VERSION}`);
     this.shareManager.initEncryptionListeners();
+    this.shareManager.initFingerprintRow();
   }
 
   /**
@@ -53,10 +73,7 @@ class MnemonicSplitApp {
     // 顶部模式切换
     addEvent(getElement(SELECTORS.MODE_SPLIT_BTN), 'click', () => this.switchMode('split'));
     addEvent(getElement(SELECTORS.MODE_RECOVER_BTN), 'click', () => this.switchMode('recover'));
-
-    // 助记词数量切换
-    addEvent(getElement(SELECTORS.WORDS_12_BTN), 'click', () => this.setWordCount(12));
-    addEvent(getElement(SELECTORS.WORDS_24_BTN), 'click', () => this.setWordCount(24));
+    addEvent(getElement(SELECTORS.MODE_OBSERVE_BTN), 'click', () => this.switchMode('observe'));
 
     // 分片配置变更
     addEvent(getElement(SELECTORS.TOTAL_SHARES), 'change', () => this.updateThresholdOptions());
@@ -67,49 +84,37 @@ class MnemonicSplitApp {
     // 恢复功能 - 由 RecoveryTabManager 处理输入，此处绑定恢复按钮
     addEvent(getElement(SELECTORS.RECOVER_BTN), 'click', () => this.handleRecoverMnemonic());
 
+    // 派生地址按钮（观察模式）
+    addEvent(getElement(SELECTORS.DERIVE_BTN), 'click', () => this.handleDeriveAddresses());
+
     // 擦除所有数据（两段式确认）
-    addEvent(getElement(SELECTORS.WIPE_ALL_BTN), 'click', (e) => this.handleWipeAll(e.currentTarget));
+    bindTwoStepConfirm(getElement(SELECTORS.WIPE_ALL_BTN), {
+      label: '擦除所有数据',
+      confirmLabel: '确认擦除？',
+      onConfirm: () => this.wipeAllData(),
+    });
 
     // 键盘快捷键
     addEvent(document, 'keydown', (e) => this.handleKeyboardShortcuts(e));
   }
 
   /**
-   * 切换顶部模式（分割 / 恢复）
-   * @param {string} mode - 'split' | 'recover'
+   * 切换顶部模式（分割 / 恢复 / 观察）
+   * @param {string} mode - 'split' | 'recover' | 'observe'
    */
   switchMode(mode) {
-    const isSplit = mode === 'split';
+    const modes = {
+      split: { btn: SELECTORS.MODE_SPLIT_BTN, panel: SELECTORS.MODE_SPLIT },
+      recover: { btn: SELECTORS.MODE_RECOVER_BTN, panel: SELECTORS.MODE_RECOVER },
+      observe: { btn: SELECTORS.MODE_OBSERVE_BTN, panel: SELECTORS.MODE_OBSERVE },
+    };
 
-    toggleClass(getElement(SELECTORS.MODE_SPLIT_BTN), CSS_CLASSES.ACTIVE, isSplit);
-    toggleClass(getElement(SELECTORS.MODE_RECOVER_BTN), CSS_CLASSES.ACTIVE, !isSplit);
-    getElement(SELECTORS.MODE_SPLIT_BTN).setAttribute('aria-pressed', String(isSplit));
-    getElement(SELECTORS.MODE_RECOVER_BTN).setAttribute('aria-pressed', String(!isSplit));
-
-    toggleClass(getElement(SELECTORS.MODE_SPLIT), CSS_CLASSES.ACTIVE, isSplit);
-    toggleClass(getElement(SELECTORS.MODE_RECOVER), CSS_CLASSES.ACTIVE, !isSplit);
-  }
-
-  /**
-   * 设置助记词数量
-   * @param {number} count - 助记词数量
-   */
-  setWordCount(count) {
-    if (!MNEMONIC_CONFIG.WORD_COUNTS.includes(count)) {
-      return;
+    for (const [name, refs] of Object.entries(modes)) {
+      const isActive = name === mode;
+      toggleClass(getElement(refs.btn), CSS_CLASSES.ACTIVE, isActive);
+      getElement(refs.btn).setAttribute('aria-pressed', String(isActive));
+      toggleClass(getElement(refs.panel), CSS_CLASSES.ACTIVE, isActive);
     }
-
-    this.currentWordCount = count;
-    this.mnemonicInput.setWordCount(count);
-    this.updateWordCountButtons();
-  }
-
-  /**
-   * 更新助记词数量按钮状态
-   */
-  updateWordCountButtons() {
-    toggleClass(getElement(SELECTORS.WORDS_12_BTN), CSS_CLASSES.ACTIVE, this.currentWordCount === 12);
-    toggleClass(getElement(SELECTORS.WORDS_24_BTN), CSS_CLASSES.ACTIVE, this.currentWordCount === 24);
   }
 
   /**
@@ -143,46 +148,76 @@ class MnemonicSplitApp {
   }
 
   /**
-   * 处理生成分片
+   * 词输入型主动作的公共骨架：校验 → 报错聚焦 → 锁定按钮执行 → 复原。
+   * 生成分片与派生地址共用；计算期间锁定按钮避免重复提交。
+   * @param {MnemonicInput} input - 词输入组件实例
+   * @param {Object} action - 动作描述
+   * @param {string} action.btnSelector - 动作按钮选择器
+   * @param {string} action.busyLabel - 执行期间的按钮文案
+   * @param {string} action.idleLabel - 常态按钮文案
+   * @param {Function} action.run - 实际动作（接收校验后的词数组），返回是否成功
+   * @param {Function} [action.onSuccess] - 成功后的回调（如滚动到结果区）
    */
-  async handleGenerateShares() {
-    const validation = this.mnemonicInput.validateAllInputs();
+  async runWordAction(input, { btnSelector, busyLabel, idleLabel, run, onSuccess }) {
+    const validation = input.validateAllInputs();
 
     if (!validation.isValid) {
       if (validation.hasEmpty) {
-        this.mnemonicInput.setStatusbar('error', '请填写所有助记词！');
+        input.setStatusbar('error', '请填写所有助记词！');
       } else {
-        this.mnemonicInput.setStatusbar('error', `第 ${validation.invalidWordIndex} 个单词不是有效的 BIP39 单词，请修正后再生成分片`);
-        this.focusInvalidInput(validation.invalidWordIndex);
+        input.setStatusbar('error', `第 ${validation.invalidWordIndex} 个单词不是有效的 BIP39 单词，请修正后再${input.actionNoun}`);
+        input.focusInvalidInput(validation.invalidWordIndex);
       }
       return;
     }
 
-    const totalShares = parseInt(getElement(SELECTORS.TOTAL_SHARES).value);
-    const threshold = parseInt(getElement(SELECTORS.THRESHOLD).value);
-
-    // 生成涉及校验和与 Shamir 计算，期间锁定按钮避免重复提交
-    const generateBtn = getElement(SELECTORS.GENERATE_BTN);
-    generateBtn.disabled = true;
-    generateBtn.textContent = '正在生成...';
+    const btn = getElement(btnSelector);
+    btn.disabled = true;
+    btn.textContent = busyLabel;
 
     try {
-      const success = await this.shareManager.generateShares(validation.words, totalShares, threshold);
-
-      if (success) {
-        this.scrollToResult('generate');
+      if (await run(validation.words)) {
+        onSuccess?.();
       }
     } finally {
-      generateBtn.disabled = false;
-      generateBtn.textContent = '生成分片';
+      btn.disabled = false;
+      btn.textContent = idleLabel;
     }
   }
 
   /**
-   * 处理恢复助记词
+   * 处理生成分片
+   */
+  handleGenerateShares() {
+    this.runWordAction(this.mnemonicInput, {
+      btnSelector: SELECTORS.GENERATE_BTN,
+      busyLabel: '正在生成...',
+      idleLabel: '生成分片',
+      run: async (words) =>
+        this.shareManager.generateShares(
+          words,
+          parseInt(getElement(SELECTORS.TOTAL_SHARES).value),
+          parseInt(getElement(SELECTORS.THRESHOLD).value),
+        ),
+      onSuccess: () => this.scrollToResult('generate'),
+    });
+  }
+
+  /**
+   * 处理恢复助记词（普通模式显示助记词；演练模式只比对指纹，不显示明文）
    */
   async handleRecoverMnemonic() {
-    const success = await this.shareManager.recoverMnemonicWithShares(this.recoveryTabManager.getCurrentShares());
+    const drill = this.recoveryTabManager.getDrillConfig();
+
+    if (drill.hasInvalidInput) {
+      Toast.error('演练指纹格式无效：应为 8 位十六进制字符（0-9、A-F），如 F3A19C2B');
+      return;
+    }
+
+    const success = await this.shareManager.recoverMnemonicWithShares(this.recoveryTabManager.getCurrentShares(), {
+      drillMode: drill.active,
+      drillFingerprint: drill.fingerprint,
+    });
 
     if (success) {
       this.scrollToResult('recover');
@@ -190,56 +225,43 @@ class MnemonicSplitApp {
   }
 
   /**
-   * 擦除所有输入与结果数据（两段式确认，避免误触）
-   * @param {Element} button - 擦除按钮
+   * 处理派生地址（观察模式）
    */
-  handleWipeAll(button) {
-    if (button.dataset.armed === 'true') {
-      this.mnemonicInput.clearAll();
-      this.shareManager.clearResults();
-      this.recoveryTabManager.clearAll();
-      Toast.info('已擦除所有输入与结果数据');
-      this.disarmWipeButton(button);
-      return;
-    }
-
-    // 进入待确认状态，3 秒后自动复原
-    button.dataset.armed = 'true';
-    button.textContent = '确认擦除？';
-    this.wipeDisarmTimer = setTimeout(() => this.disarmWipeButton(button), 3000);
+  handleDeriveAddresses() {
+    this.runWordAction(this.observeInput, {
+      btnSelector: SELECTORS.DERIVE_BTN,
+      busyLabel: '正在派生...',
+      idleLabel: '派生地址',
+      run: (words) => this.addressWatcher.derive(words, getElement(SELECTORS.OBS_PASSPHRASE).value),
+      onSuccess: () => this.scrollToResult('observe'),
+    });
   }
 
   /**
-   * 复原擦除按钮状态
-   * @param {Element} button - 擦除按钮
+   * 擦除所有输入与结果数据（两段式确认按钮触发）
    */
-  disarmWipeButton(button) {
-    clearTimeout(this.wipeDisarmTimer);
-    this.wipeDisarmTimer = null;
-    delete button.dataset.armed;
-    button.textContent = '擦除所有数据';
-  }
-
-  /**
-   * 聚焦到无效输入框
-   * @param {number} index - 输入框索引
-   */
-  focusInvalidInput(index) {
-    const input = getElement(SELECTORS.WORD_INPUT(index));
-    toggleClass(input, CSS_CLASSES.INVALID_WORD, true);
-    input.focus();
+  wipeAllData() {
+    this.mnemonicInput.clearAll();
+    this.shareManager.clearResults();
+    this.recoveryTabManager.clearAll();
+    this.observeInput.clearAll();
+    this.addressWatcher.clearAll();
+    getElement(SELECTORS.OBS_PASSPHRASE).value = '';
+    Toast.info('已擦除所有输入与结果数据');
   }
 
   /**
    * 滚动到结果区域
-   * @param {string} target - 'generate' 生成分片结果 | 'recover' 恢复结果
+   * @param {string} target - 'generate' 生成分片结果 | 'recover' 恢复结果 | 'observe' 派生结果
    */
   scrollToResult(target) {
     // 恢复结果渲染在当前活动 Tab 的结果区域内
     const resultDiv =
       target === 'recover'
         ? getElement('.tab-pane.active .recover-result-section')
-        : getElement(SELECTORS.SHARES_RESULT);
+        : target === 'observe'
+          ? getElement(SELECTORS.OBSERVE_RESULT)
+          : getElement(SELECTORS.SHARES_RESULT);
 
     if (resultDiv && resultDiv.children.length > 0) {
       resultDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -251,15 +273,19 @@ class MnemonicSplitApp {
    * @param {KeyboardEvent} e - 键盘事件
    */
   handleKeyboardShortcuts(e) {
-    // Ctrl/Cmd + Enter 生成分片或恢复助记词
+    // Ctrl/Cmd + Enter：按当前模式触发生成分片 / 恢复助记词 / 派生地址
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       e.preventDefault();
 
+      const isObserveActive = getElement(SELECTORS.MODE_OBSERVE).classList.contains(CSS_CLASSES.ACTIVE);
       const recoverInput = getElement(SELECTORS.RECOVER_INPUT);
+
       if (document.activeElement === recoverInput) {
         if (!getElement(SELECTORS.RECOVER_BTN).disabled) {
           this.handleRecoverMnemonic();
         }
+      } else if (isObserveActive) {
+        this.handleDeriveAddresses();
       } else {
         this.handleGenerateShares();
       }

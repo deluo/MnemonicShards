@@ -2,6 +2,11 @@
  * 通用工具函数
  */
 
+import { addEvent } from './dom.js';
+
+// 两段式确认的自动复原时长（毫秒）
+const CONFIRM_RESET_DELAY = 3000;
+
 /**
  * 防抖函数
  * @param {Function} func - 要防抖的函数
@@ -14,6 +19,41 @@ export function debounce(func, delay) {
     clearTimeout(timeoutId);
     timeoutId = setTimeout(() => func.apply(this, args), delay);
   };
+}
+
+/**
+ * 绑定两段式确认按钮：首次点击进入待确认态（切换文案，3 秒未确认自动复原），
+ * 再次点击执行动作并复原。用于擦除、复制敏感内容等不易撤销或隐私敏感操作的防误触。
+ * @param {Element} button - 按钮元素
+ * @param {Object} config
+ * @param {string} config.label - 常态文案
+ * @param {string} config.confirmLabel - 待确认态文案
+ * @param {Function} config.onConfirm - 确认后执行的动作
+ * @returns {Function} 强制复原函数（外部清空数据时重置按钮态用）
+ */
+export function bindTwoStepConfirm(button, { label, confirmLabel, onConfirm }) {
+  let timer = null;
+
+  const disarm = () => {
+    clearTimeout(timer);
+    timer = null;
+    delete button.dataset.armed;
+    button.textContent = label;
+  };
+
+  addEvent(button, 'click', () => {
+    if (button.dataset.armed === 'true') {
+      disarm();
+      onConfirm();
+      return;
+    }
+
+    button.dataset.armed = 'true';
+    button.textContent = confirmLabel;
+    timer = setTimeout(disarm, CONFIRM_RESET_DELAY);
+  });
+
+  return disarm;
 }
 
 /**

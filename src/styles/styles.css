@@ -143,7 +143,6 @@ body {
   align-items: center;
   gap: var(--sp-2);
   padding: var(--sp-6) 0 var(--sp-5);
-  border-bottom: 1px solid var(--border);
   text-align: center;
 }
 
@@ -192,7 +191,8 @@ body {
   font-size: var(--font-md);
   font-weight: 500;
   cursor: pointer;
-  border-radius: calc(var(--radius-control) - 2px);
+  /* 与容器同心：外径 8px − 容器内边距 4px = 4px */
+  border-radius: calc(var(--radius-control) - var(--sp-1));
   transition: color var(--transition), background var(--transition);
 }
 
@@ -204,7 +204,6 @@ body {
   background: var(--surface);
   color: var(--accent);
   font-weight: 600;
-  box-shadow: inset 0 0 0 1px var(--border);
 }
 
 .mode-panel {
@@ -870,6 +869,34 @@ select:focus {
   font-weight: 600;
 }
 
+/* ---------- 助记词指纹 ---------- */
+.fingerprint-block {
+  margin-bottom: var(--sp-4);
+}
+
+.fingerprint-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.fingerprint-label {
+  font-size: var(--font-sm);
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.fingerprint-value {
+  font-size: var(--font-base);
+  font-weight: 600;
+  letter-spacing: 2px;
+  color: var(--accent);
+}
+
+.fingerprint-block .field-note {
+  margin-top: var(--sp-2);
+}
+
 .share-item {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -922,6 +949,12 @@ select:focus {
 .share-badge .icon {
   width: 12px;
   height: 12px;
+}
+
+/* 分片校验码徽章：等宽字体便于逐字人工核对 */
+.share-badge-checksum {
+  font-family: var(--font-mono);
+  letter-spacing: 1px;
 }
 
 .share-buttons {
@@ -1046,6 +1079,12 @@ select:focus {
   background: var(--surface-2);
 }
 
+/* 分割面板 passphrase 提示：help-block 自身只有 margin-bottom，需补上段间距 */
+.split-passphrase-hint {
+  margin-top: var(--sp-4);
+  margin-bottom: 0;
+}
+
 .help-block summary {
   padding: var(--sp-2) var(--sp-3);
   font-size: var(--font-md);
@@ -1085,6 +1124,14 @@ select:focus {
 
 .help-block li {
   margin-bottom: var(--sp-1);
+}
+
+.help-block .help-body p {
+  margin: 0 0 var(--sp-2);
+}
+
+.help-block .help-body strong {
+  color: var(--text);
 }
 
 .help-example {
@@ -1406,6 +1453,42 @@ select:focus {
   user-select: none;
 }
 
+/* 演练/恢复中被跳过的坏片警告 */
+.recover-card-warning {
+  font-size: var(--font-sm);
+  color: var(--warning);
+  background: var(--warning-dim);
+  border: 1px solid rgba(154, 103, 0, 0.3);
+  border-radius: var(--radius-control);
+  padding: var(--sp-2) var(--sp-3);
+  margin-bottom: var(--sp-3);
+}
+
+/* 演练卡中的指纹比对结论 */
+.recover-card-fingerprint {
+  font-family: var(--font-mono);
+  font-size: var(--font-base);
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-control);
+  margin-bottom: var(--sp-3);
+}
+
+/* ---------- 恢复演练模式 ---------- */
+.drill-section {
+  margin-top: var(--sp-4);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--border);
+}
+
+.drill-fields {
+  margin-top: var(--sp-3);
+}
+
 .recover-card-actions {
   display: flex;
   gap: var(--sp-2);
@@ -1428,6 +1511,202 @@ select:focus {
   margin-top: var(--sp-2);
   font-size: var(--font-sm);
   color: var(--text-2);
+}
+
+/* ---------- 地址观察 ---------- */
+.observe-advanced {
+  margin-top: var(--sp-4);
+}
+
+.observe-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  font-size: var(--font-sm);
+  color: var(--text-2);
+  margin-bottom: var(--sp-3);
+}
+
+.passphrase-badge {
+  padding: 2px 8px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  border-radius: var(--radius-pill);
+  font-weight: 600;
+}
+
+.address-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+}
+
+.address-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+}
+
+.address-path {
+  flex-shrink: 0;
+  min-width: 38px;
+  text-align: center;
+  padding: 2px 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-size: var(--font-sm);
+  color: var(--text-2);
+}
+
+.address-value {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-sm);
+  word-break: break-all;
+  line-height: 1.6;
+}
+
+/* 地址首尾 8 位高亮：实底金块 + 反白文字（与主按钮同款对比），
+   方角小块圈出比对用的关键字符；中间段淡化兼顾隐私 */
+.addr-edge {
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+  padding: 1px 4px;
+  border-radius: 3px;
+  margin: 0 1px;
+}
+
+.addr-mid {
+  opacity: 0.4;
+}
+
+.address-buttons {
+  display: flex;
+  gap: var(--sp-2);
+  flex-shrink: 0;
+}
+
+.show-more-btn {
+  margin-bottom: var(--sp-4);
+}
+
+/* 观察钱包导出卡片 */
+.zpub-card {
+  padding: var(--sp-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+}
+
+.zpub-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+}
+
+.zpub-header .section-subtitle {
+  margin-bottom: 0;
+}
+
+.zpub-actions {
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+.zpub-text {
+  font-family: var(--font-mono);
+  font-size: var(--font-sm);
+  word-break: break-all;
+  line-height: 1.7;
+  padding: var(--sp-3);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  margin-bottom: var(--sp-3);
+  transition: filter var(--transition);
+}
+
+/* zpub 遮蔽：与恢复结果 is-masked 同款模糊处理 */
+.zpub-text.is-blurred {
+  filter: blur(10px);
+  user-select: none;
+}
+
+.field-note.is-warning {
+  color: var(--warning);
+}
+
+/* ---------- 二维码弹层 ---------- */
+.qr-modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.qr-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 20, 30, 0.55);
+}
+
+.qr-modal-box {
+  position: relative;
+  background: var(--surface);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-float);
+  padding: var(--sp-5);
+  max-width: min(92vw, 360px);
+}
+
+.qr-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-4);
+}
+
+.qr-modal-title {
+  font-size: var(--font-md);
+  font-weight: 600;
+}
+
+.qr-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-2);
+  cursor: pointer;
+  padding: var(--sp-1);
+  display: flex;
+  border-radius: calc(var(--radius-control) - 2px);
+  transition: color var(--transition), background var(--transition);
+}
+
+.qr-close-btn:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+#qrCanvas {
+  display: block;
+  border-radius: calc(var(--radius-control) - 2px);
 }
 
 /* ---------- Toast ---------- */
@@ -1532,5 +1811,25 @@ select:focus {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---------- 窄屏适配（地址观察） ---------- */
+@media (max-width: 640px) {
+  .address-row {
+    flex-wrap: wrap;
+  }
+
+  .address-value {
+    flex-basis: 100%;
+    order: 3;
+  }
+
+  .address-buttons {
+    margin-left: auto;
+  }
+
+  .qr-modal-box {
+    padding: var(--sp-4);
   }
 }

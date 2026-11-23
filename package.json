@@ -29,7 +29,11 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@noble/hashes": "^2.4.0",
+    "@scure/base": "^2.4.0",
+    "@scure/bip32": "^2.4.0",
     "openpgp": "^6.2.2",
+    "qrcode": "^1.5.4",
     "shamir-secret-sharing": "^0.0.4"
   },
   "devDependencies": {

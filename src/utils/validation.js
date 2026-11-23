@@ -3,6 +3,7 @@
  */
 
 import { BIP39_WORDLIST } from '../constants/bip39-words.js';
+import { verifyShareChecksum } from './integrity.js';
 
 // BIP39 标准支持的助记词数量（ENT 及对应校验和位数）
 const BIP39_VALID_WORD_COUNTS = [12, 15, 18, 21, 24];
@@ -19,13 +20,19 @@ export function isValidBIP39Word(word) {
 
 /**
  * 解析分片数据
+ * 解析成功后附加 checksumOk 字段（校验码校验结果，见 integrity.js）：
+ * true=校验码匹配；false=校验码不符或 data 已损坏；undefined=旧格式分片（无校验码）
  * @param {string} shareString - Base64编码的分片字符串
  * @returns {Object|null} 解析后的分片数据，无效时返回 null
  */
 export function parseShareData(shareString) {
   try {
     const data = JSON.parse(atob(shareString.trim()));
-    return data.threshold && data.index !== undefined && data.data ? data : null;
+    if (!data.threshold || data.index === undefined || !data.data) {
+      return null;
+    }
+    data.checksumOk = verifyShareChecksum(data);
+    return data;
   } catch (error) {
     return null;
   }
@@ -124,17 +131,24 @@ export async function validateMnemonicChecksum(words) {
 /**
  * 验证分片集合
  * @param {string[]|Object[]} shares - 分片字符串数组或分片对象数组
- * @returns {Object} 验证结果 { isValid, validCount, threshold, hasDuplicates }
+ * @returns {Object} 验证结果
+ *   { isValid, validCount, threshold, hasDuplicates, checksumBad }
+ *   checksumBad: 校验码不符的分片序号列表（分片仍计入 validCount，
+ *   富余分片足够时恢复仍可进行，仅提示用户该分片抄录可能有误）
  */
 export function validateShareCollection(shares) {
   const validShares = [];
   const indices = new Set();
+  const checksumBad = [];
 
   for (const share of shares) {
     const data = typeof share === 'string' ? parseShareData(share) : share;
     if (data?.threshold && data.index !== undefined && data.data) {
       validShares.push(data);
       indices.add(data.index);
+      if (data.checksumOk === false) {
+        checksumBad.push(data.index);
+      }
     }
   }
 
@@ -146,5 +160,6 @@ export function validateShareCollection(shares) {
     validCount: validShares.length,
     threshold,
     hasDuplicates,
+    checksumBad,
   };
 }

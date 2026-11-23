@@ -85,6 +85,7 @@
       <nav class="mode-switch" aria-label="功能模式">
         <button class="mode-btn active" id="modeSplitBtn" type="button" aria-pressed="true">分割助记词</button>
         <button class="mode-btn" id="modeRecoverBtn" type="button" aria-pressed="false">恢复助记词</button>
+        <button class="mode-btn" id="modeObserveBtn" type="button" aria-pressed="false">观察地址</button>
       </nav>
 
       <main class="main-content">
@@ -152,6 +153,21 @@
                 <p class="field-note">启用后分片卡仅提供「下载 .gpg」；请务必记住密码，恢复时需要此密码。</p>
               </div>
             </div>
+
+            <!-- passphrase 不参与分片的提示 -->
+            <details class="help-block split-passphrase-hint">
+              <summary>钱包使用了 passphrase（第 25 词）？</summary>
+              <div class="help-body">
+                <p>
+                  分片只保护上面的 <strong>12/24 个助记词</strong>，<strong>passphrase（第 25 词）不会包含在任何分片中</strong>。
+                  若你的钱包启用了 passphrase，请务必将其与分片分开另行妥善保管（例如记在纸上或密码管理器中）。
+                  恢复出助记词后导入钱包时，需重新输入 passphrase 才能进入原有钱包，仅凭分片无法找回它。
+                </p>
+                <p class="field-note">
+                  不确定钱包是否设置了 passphrase？留空导入后如果看不到原有资产和地址，通常就是设置了。
+                </p>
+              </div>
+            </details>
           </div>
 
           <!-- 输入助记词 -->
@@ -177,6 +193,19 @@
                 <span class="num" id="downloadedCount">0</span> · 共
                 <span class="num" id="totalCount">0</span> 片，任意
                 <span class="num" id="thresholdDisplay"></span> 片可恢复。请将分片分别保存到不同位置。
+              </div>
+
+              <!-- 助记词指纹：抄写保管（与分片分开存放），恢复演练时比对 -->
+              <div class="fingerprint-block" id="fingerprintRow" style="display: none">
+                <div class="fingerprint-row">
+                  <span class="fingerprint-label">助记词指纹</span>
+                  <span class="fingerprint-value mono" id="fingerprintValue"></span>
+                  <button class="copy-btn btn-sm" id="fingerprintCopyBtn" type="button">复制</button>
+                </div>
+                <p class="field-note">
+                  请将指纹抄写到保管卡或纸质笔记本上，与分片分开存放。日后在恢复区勾选「演练模式」并输入指纹，
+                  即可在不显示助记词明文的情况下确认备份有效。指纹只有 8 位十六进制，不会写入任何分片。
+                </p>
               </div>
 
               <div id="sharesList"></div>
@@ -206,10 +235,10 @@
                       <li>将每个分片粘贴到下方文本框中，每行一个分片</li>
                       <li>分片格式应为完整的 Base64 编码字符串</li>
                       <li>至少需要达到设定的最小分片数量才能恢复</li>
-                      <li>多余的分片会被自动忽略</li>
+                      <li>多余的分片会被自动忽略；带校验码的分片会自动逐张核对，坏片会被点名</li>
                     </ol>
-                    <pre class="help-example">eyJpbmRleCI6MSwidGhyZXNob2xkIjozLCJ0b3RhbCI6NSwiZGF0YSI6IlpZdjk5azRYckJXZmxzWEdURGowUlQxMXRqTmxPUk9yZU1Kc0I3SVQvMTJqbTcraTZKUGtycVRLMk9pdWdUVnpjQkpISHFqV2NGS3J6c0xUS2kvVFlITTVPbFlBOGpVNUo2LzlyOGpyUjBFQm1WRTFvR2taNVJBV2ZteWxaZz09In0=
-eyJpbmRleCI6MiwidGhyZXNob2xkIjozLCJ0b3RhbCI6NSwiZGF0YSI6ImV3aVVuOTN4MEY1M2M2MTZvYUcwNTNNbEZtbitUM0Q4TWh2cFFUaktDbldwYUVkcVovWkdaZ1Y4c3JRVHR1aUlhU2FzSjVBWlA0WlFXNnc4MjlETmVkd3pmM0dndTdQbW5YNEpWSDhzbE85YWp0b1ZkQUtHR21QeHpOLzVJdz09In0=</pre>
+                    <pre class="help-example">eyJpbmRleCI6MSwidGhyZXNob2xkIjozLCJ0b3RhbCI6NSwiZGF0YSI6IkxWZVRmNit0MW0vVHhPVDhNaEZMNllMV0VYWHJJakI3eDVCMnpDOTMwbGozZGM2d2w0VmgvNEVKYlNDUU5GWkpwTFE5am9pOVBxbTlCVmtNcy9lSHpaNmNBMUY3NHZ2cm5DRnJydSttK0NOSUw4Y25IWjh6RjhsWncxSXJEZz09IiwiY2hlY2tzdW0iOiJKVjVUV0owMSJ9
+eyJpbmRleCI6MiwidGhyZXNob2xkIjozLCJ0b3RhbCI6NSwiZGF0YSI6Ikl6czViR0hGOTE5WVhDOGhxMmJSOTBIbzMxMnJoeGVweFBVNkNEbDJJTHRMdS9jQlFNOGlOM1V2RWd2R3A3MXRBQXI1aDhJbnlnQ0tsR0x3Z0tobGgwb2hudW9IM2wzb29naSsyQ20ySGJTcTBkY1pRUWRyR0JVNTZLWXNVZz09IiwiY2hlY2tzdW0iOiJONU1CSFFOVyJ9</pre>
                   </div>
                 </details>
 
@@ -311,7 +340,146 @@ eyJpbmRleCI6MiwidGhyZXNob2xkIjozLCJ0b3RhbCI6NSwiZGF0YSI6ImV3aVVuOTN4MEY1M2M2MTZv
               </div>
             </div>
 
+            <!-- 恢复演练模式：对粘贴/上传两个 Tab 同时生效 -->
+            <div class="drill-section" id="drillSection">
+              <label class="checkbox-container">
+                <input type="checkbox" id="drillModeToggle" />
+                <span class="checkmark"></span>
+                <span>演练模式（不显示助记词，只验证分片有效性）</span>
+              </label>
+
+              <div id="drillFingerprintFields" class="drill-fields" style="display: none">
+                <div class="control-group">
+                  <label for="drillFingerprintInput">预期指纹（可选）</label>
+                  <input
+                    type="text"
+                    id="drillFingerprintInput"
+                    class="password-input"
+                    placeholder="如 F3A19C2B"
+                    spellcheck="false"
+                    autocomplete="off"
+                    autocorrect="off"
+                    autocapitalize="off"
+                  />
+                  <div class="field-note" id="drillFingerprintNote">
+                    创建分片时页面显示的 8 位「助记词指纹」。留空则只验证可完整恢复，并显示恢复结果的指纹（旧版分片可借此建立指纹）。
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <button class="action-btn" id="recoverBtn" disabled>恢复助记词</button>
+          </div>
+        </section>
+
+        <!-- ============ 观察模式 ============ -->
+        <section id="observeMode" class="mode-panel" aria-label="观察地址">
+          <!-- 配置 -->
+          <div class="section">
+            <div class="section-title">配置</div>
+
+            <div class="controls">
+              <div class="control-group">
+                <span class="control-label" id="obsWordCountLabel">助记词数量</span>
+                <div class="btn-group" id="obsWordCountButtons" role="group" aria-labelledby="obsWordCountLabel">
+                  <button id="obsWords12" class="active" type="button">12 个单词</button>
+                  <button id="obsWords24" type="button">24 个单词</button>
+                </div>
+              </div>
+
+              <div class="control-group">
+                <span class="control-label" id="pathPresetLabel">地址类型</span>
+                <div class="btn-group" id="pathPresetGroup" role="group" aria-labelledby="pathPresetLabel">
+                  <button data-preset="native" class="active" type="button" aria-pressed="true">Native（推荐）</button>
+                  <button data-preset="nested" type="button" aria-pressed="false">Nested（过渡）</button>
+                  <button data-preset="legacy" type="button" aria-pressed="false">Legacy（早期）</button>
+                </div>
+              </div>
+            </div>
+
+            <details class="help-block observe-advanced">
+              <summary>地址类型说明（当前仅支持 BTC）</summary>
+              <div class="help-body">
+                <p><strong>Native SegWit</strong>（bc1q… 开头，路径 m/84'/0'/0'）：原生隔离见证，手续费最低，是 Bitcoin Core、BlueWallet 等较新钱包的默认格式。没有特殊理由时选它。</p>
+                <p><strong>Nested SegWit</strong>（3… 开头，路径 m/49'/0'/0'）：嵌套隔离见证，SegWit 普及期的过渡格式，对老服务兼容性最好，手续费高于 Native。</p>
+                <p><strong>Legacy</strong>（1… 开头，路径 m/44'/0'/0'）：最早期的传统格式，个别老旧平台只支持它，手续费最高。</p>
+                <p class="field-note">
+                  选择原则：观察钱包必须与实际管钱的钱包使用同一路径，派生地址才会一致。
+                  可按钱包现有收款地址的开头判断：bc1 → Native；3 → Nested；1 → Legacy。
+                  拿不准时先用默认的 Native 导入观察钱包，核对首个收款地址是否一致即可确认。
+                  当前版本仅支持 BTC；其他币种的派生与编码体系不同，暂不支持。
+                </p>
+              </div>
+            </details>
+
+            <details class="help-block observe-advanced">
+              <summary>passphrase（可选）</summary>
+              <div class="help-body">
+                <div class="control-group">
+                  <label for="obsPassphrase">passphrase（第 25 词）</label>
+                  <input
+                    type="password"
+                    id="obsPassphrase"
+                    class="password-input"
+                    placeholder="钱包未设置第 25 词则留空"
+                    autocomplete="new-password"
+                  />
+                </div>
+                <p class="field-note">
+                  仅当钱包创建时设置了 passphrase 才需要填写，留空即常规派生。
+                  派生结果是否正确，以 BlueWallet 导入后的首个收款地址比对为准。
+                </p>
+              </div>
+            </details>
+          </div>
+
+          <!-- 输入助记词 -->
+          <div class="section">
+            <div class="section-title">输入助记词</div>
+
+            <div class="statusbar" id="obsWordsStatusbar" role="status" aria-live="polite"></div>
+
+            <div class="words-grid" id="obsWordsGrid">
+              <!-- 动态生成输入框 -->
+            </div>
+
+            <button class="action-btn" id="deriveBtn" type="button">派生地址</button>
+          </div>
+
+          <!-- 派生结果 -->
+          <div id="observeResult" style="display: none">
+            <div class="section">
+              <div class="section-title">派生结果</div>
+
+              <div class="observe-summary" id="observePathSummary"></div>
+
+              <div class="address-list" id="observeAddressList"></div>
+
+              <button class="btn btn-secondary btn-sm show-more-btn" id="showMoreAddressesBtn" type="button">
+                显示更多地址
+              </button>
+
+              <div class="zpub-card" id="observeExportCard">
+                <div class="zpub-header">
+                  <div class="section-subtitle">观察钱包导出（Watch-only）</div>
+                  <div class="zpub-actions">
+                    <button class="btn btn-secondary btn-sm" id="zpubRevealBtn" type="button">显示</button>
+                    <button class="btn btn-secondary btn-sm" id="zpubCopyBtn" type="button">复制 zpub</button>
+                    <button class="btn btn-primary btn-sm" id="zpubQrBtn" type="button">二维码</button>
+                  </div>
+                </div>
+
+                <div class="zpub-text is-blurred" id="zpubText"></div>
+
+                <p class="field-note">
+                  BlueWallet →「+」→ 导入钱包 → Watch-only → 扫描二维码或粘贴。
+                  导入后钱包的首个收款地址应与上方 0/0 行一致（比对首尾 8 位）。
+                </p>
+                <p class="field-note is-warning">
+                  zpub 包含全部收款地址的隐私信息（余额可见），但不能转走资金，请勿泄露给不信任的人。
+                </p>
+              </div>
+            </div>
           </div>
         </section>
       </main>
@@ -320,6 +488,27 @@ eyJpbmRleCI6MiwidGhyZXNob2xkIjozLCJ0b3RhbCI6NSwiZGF0YSI6ImV3aVVuOTN4MEY1M2M2MTZv
         <span class="footer-meta">MnemonicShards <span class="mono" id="versionLabel"></span> · 完全离线运行，数据不离开本机</span>
         <button class="btn btn-danger-outline btn-sm" id="wipeAllBtn" type="button">擦除所有数据</button>
       </footer>
+    </div>
+
+    <!-- 二维码弹层（观察模式共用） -->
+    <div
+      class="qr-modal"
+      id="qrModal"
+      style="display: none"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="qrModalTitle"
+    >
+      <div class="qr-modal-backdrop"></div>
+      <div class="qr-modal-box">
+        <div class="qr-modal-header">
+          <span class="qr-modal-title" id="qrModalTitle"></span>
+          <button class="qr-close-btn" id="qrCloseBtn" type="button" aria-label="关闭二维码">
+            <svg class="icon" aria-hidden="true"><use href="#i-cross" /></svg>
+          </button>
+        </div>
+        <canvas id="qrCanvas" width="280" height="280"></canvas>
+      </div>
     </div>
 
     <script type="module" src="/src/main.js"></script>

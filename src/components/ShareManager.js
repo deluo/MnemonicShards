@@ -8,6 +8,7 @@ import { split, combine } from 'shamir-secret-sharing';
 import { getElement, createElement, toggleElement, toggleClass, clearElement, addEvent } from '../utils/dom.js';
 import { copyToClipboard, downloadFile, formatDateTime, base64ToBytes } from '../utils/helpers.js';
 import { validateMnemonicChecksum } from '../utils/validation.js';
+import { computeMnemonicFingerprint, computeShareChecksum } from '../utils/integrity.js';
 import { encryptWithPassword, decryptWithPassword, validatePasswordStrength, validatePasswordMatch } from '../utils/encryption.js';
 import { SELECTORS, CSS_CLASSES } from '../constants/index.js';
 import { Toast } from './Toast.js';
@@ -23,10 +24,27 @@ export class ShareManager {
     this.onWipeRecovery = null; // 由 main 注入：恢复结果擦除时清理恢复侧输入
     this.currentShares = [];
     this.currentThreshold = 0;
+    this.currentFingerprint = ''; // 助记词指纹（仅展示/比对用，不写入分片）
     this.copiedShares = new Set(); // 跟踪已复制的分片索引
     this.downloadedShares = new Set(); // 跟踪已下载的分片索引
     this.isEncryptionEnabled = false; // 加密是否启用
     this.encryptionPassword = ''; // 加密密码
+  }
+
+  /**
+   * 初始化助记词指纹行（静态元素，按钮事件只绑定一次）
+   */
+  initFingerprintRow() {
+    const copyBtn = getElement(SELECTORS.FINGERPRINT_COPY_BTN);
+    addEvent(copyBtn, 'click', async () => {
+      if (!this.currentFingerprint) return;
+      const success = await copyToClipboard(this.formatFingerprint(this.currentFingerprint));
+      if (success) {
+        Toast.success('指纹已复制到剪贴板');
+      } else {
+        Toast.error('复制到剪贴板失败');
+      }
+    });
   }
 
   /**
@@ -160,12 +178,15 @@ export class ShareManager {
         return false;
       }
 
-      // 生成分片（保持 v1 格式，兼容标准 GPG 工具与既有分片）
+      // 生成分片（v1.2 格式：分片 JSON 内嵌可选校验码字段，兼容标准 GPG 工具与旧格式分片）
       const mnemonic = words.join(' ');
       const secretBytes = new TextEncoder().encode(mnemonic);
       const rawShares = await split(secretBytes, totalShares, threshold);
 
-      // 转换为 Base64 格式
+      // 助记词指纹：展示给用户抄写保管（与分片分开存放），不写入任何分片
+      this.currentFingerprint = computeMnemonicFingerprint(mnemonic);
+
+      // 转换为 Base64 格式，分片行与其校验码一并持有（渲染/下载时无需回头再解析）
       this.currentShares = rawShares.map((share, index) => {
         const shareData = {
           index: index + 1,
@@ -173,7 +194,10 @@ export class ShareManager {
           total: totalShares,
           data: btoa(String.fromCharCode(...share)),
         };
-        return btoa(JSON.stringify(shareData));
+        // 分片校验码（v1.2+ 可选字段）：data 解码字节的 SHA-256 前 5 字节的
+        // Crockford Base32 编码。仅供人工核对与恢复时定位损坏分片，恢复算法不使用它
+        shareData.checksum = computeShareChecksum(shareData);
+        return { share: btoa(JSON.stringify(shareData)), checksum: shareData.checksum };
       });
 
       this.currentThreshold = threshold;
@@ -207,7 +231,33 @@ export class ShareManager {
     });
 
     toggleElement(resultDiv, true);
+    this.updateFingerprintRow();
     this.updateSummary();
+  }
+
+  /**
+   * 显示/更新助记词指纹行（提示用户抄写保管，与分片分开存放）
+   */
+  updateFingerprintRow() {
+    const row = getElement(SELECTORS.FINGERPRINT_ROW);
+    const value = getElement(SELECTORS.FINGERPRINT_VALUE);
+
+    if (!this.currentFingerprint) {
+      toggleElement(row, false);
+      return;
+    }
+
+    value.textContent = this.formatFingerprint(this.currentFingerprint);
+    toggleElement(row, true);
+  }
+
+  /**
+   * 指纹展示格式：4+4 分组便于抄写，如 "F3A1 9C2B"
+   * @param {string} hex - 8 位大写十六进制指纹
+   * @returns {string}
+   */
+  formatFingerprint(hex) {
+    return `${hex.slice(0, 4)} ${hex.slice(4)}`;
   }
 
   /**
@@ -232,7 +282,7 @@ export class ShareManager {
 
   /**
    * 创建分片项
-   * @param {string} share - 分片内容
+   * @param {Object} share - 分片对象 { share: 分片内容行, checksum: 分片校验码 }
    * @param {number} index - 分片索引
    * @returns {Element} 分片项元素
    */
@@ -257,6 +307,12 @@ export class ShareManager {
       titleGroup.appendChild(badge);
     }
 
+    // 分片校验码徽章：提示用户核对抄录内容（v1.2+ 分片携带 checksum 字段）
+    const checksumBadge = createElement('span', ['share-badge', 'share-badge-checksum']);
+    checksumBadge.textContent = `校验码 ${share.checksum}`;
+    checksumBadge.title = '分片校验码：人工核对分片是否抄录/损坏用；恢复输入时会自动逐张校验并定位坏片';
+    titleGroup.appendChild(checksumBadge);
+
     const buttons = createElement('div', ['share-buttons']);
 
     if (!this.isEncryptionEnabled) {
@@ -270,20 +326,20 @@ export class ShareManager {
         copyBtn.textContent = '复制';
       }
 
-      addEvent(copyBtn, 'click', () => this.copyShare(copyBtn, share, index));
+      addEvent(copyBtn, 'click', () => this.copyShare(copyBtn, share.share, index));
       buttons.appendChild(copyBtn);
     }
 
     const downloadBtn = createElement('button', ['download-btn', 'btn-sm'], { type: 'button' });
     downloadBtn.textContent = this.downloadedShares.has(index) ? '已下载' : '下载';
-    addEvent(downloadBtn, 'click', () => this.downloadShare(share, index, downloadBtn));
+    addEvent(downloadBtn, 'click', () => this.downloadShare(share.share, index, downloadBtn, share.checksum));
     buttons.appendChild(downloadBtn);
 
     header.appendChild(titleGroup);
     header.appendChild(buttons);
 
     const content = createElement('div', ['share-content', 'is-collapsed']);
-    content.textContent = share;
+    content.textContent = share.share;
     content.title = '点击展开或收起';
 
     const expandBtn = createElement('button', ['text-btn', 'share-expand'], { type: 'button' });
@@ -328,8 +384,9 @@ export class ShareManager {
    * @param {string} shareContent - 分片内容
    * @param {number} shareIndex - 分片索引
    * @param {Element} button - 下载按钮
+   * @param {string} checksum - 分片校验码
    */
-  async downloadShare(shareContent, shareIndex, button) {
+  async downloadShare(shareContent, shareIndex, button, checksum) {
     try {
       let success;
       if (this.isEncryptionEnabled) {
@@ -340,7 +397,7 @@ export class ShareManager {
         }
         success = await this.downloadEncryptedShare(shareContent, shareIndex);
       } else {
-        success = this.downloadStandardShare(shareContent, shareIndex);
+        success = this.downloadStandardShare(shareContent, shareIndex, checksum);
       }
 
       if (success) {
@@ -383,9 +440,10 @@ export class ShareManager {
    * 下载标准分片
    * @param {string} shareContent - 分片内容
    * @param {number} shareIndex - 分片索引
+   * @param {string} checksum - 分片校验码
    * @returns {boolean} 是否下载成功
    */
-  downloadStandardShare(shareContent, shareIndex) {
+  downloadStandardShare(shareContent, shareIndex, checksum) {
     // 标准格式，包含应用信息和安全提示
     const fileContent = [
       `MnemonicShards 分片 ${shareIndex}`,
@@ -393,6 +451,8 @@ export class ShareManager {
       '',
       '分片内容:',
       shareContent,
+      '',
+      `分片校验码: ${checksum}（人工核对用；恢复输入时工具会自动校验并定位损坏分片）`,
       '',
       '='.repeat(50),
       `生成时间: ${formatDateTime()}`,
@@ -472,27 +532,60 @@ export class ShareManager {
 
   /**
    * 使用分片数据恢复助记词
+   * 分片级校验码（v1.2+）不符的分片会被点名：富余分片足够时自动跳过并提示，
+   * 否则恢复失败并列出坏片，避免带病合并产出无意义结果
    * @param {Object[]} shares - 已解析的分片对象数组
-   * @returns {Promise<boolean>} 是否恢复成功
+   * @param {Object} [options]
+   * @param {boolean} [options.drillMode] - 演练模式：全程不渲染助记词明文，只输出指纹比对结论
+   * @param {string|null} [options.drillFingerprint] - 演练模式预期指纹（归一化 8 位 hex）；
+   *   为 null 时仅验证分片可完整合并并通过 BIP39 校验和（不比对身份）
+   * @returns {Promise<boolean>} 是否恢复成功（演练模式下指纹一致才算成功）
    */
-  async recoverMnemonicWithShares(shares) {
+  async recoverMnemonicWithShares(shares, { drillMode = false, drillFingerprint = null } = {}) {
     this.setRecoverBtnBusy(true);
 
     try {
-      const shareDataList = shares.filter((s) => s?.threshold && s.index !== undefined && s.data);
-
-      if (shareDataList.length === 0) {
+      if (shares.length === 0) {
         throw new Error('没有找到有效的分片数据');
       }
 
-      const threshold = shareDataList[0].threshold;
-      if (shareDataList.length < threshold) {
-        throw new Error(`分片数量不足。至少需要 ${threshold} 个分片，但只提供了 ${shareDataList.length} 个。`);
+      // 校验码不符的分片单独分区：Shamir 单片无法自证，校验码是唯一的坏片信号
+      const badShares = shares.filter((s) => s.checksumOk === false);
+      const goodShares = shares.filter((s) => s.checksumOk !== false);
+      const skippedBadIndices = badShares.map((s) => s.index);
+
+      const threshold = shares[0].threshold;
+      if (goodShares.length < threshold) {
+        if (badShares.length > 0) {
+          throw new Error(
+            `恢复失败：分片 ${this.formatShareIndices(skippedBadIndices)} 校验码不匹配（可能抄录有误或已损坏），` +
+              `剩余有效分片不足以恢复（需要 ${threshold} 个，有效 ${goodShares.length} 个）。` +
+              '请重新核对上述分片的抄录，或换用其他分片。',
+          );
+        }
+        throw new Error(`分片数量不足。至少需要 ${threshold} 个分片，但只提供了 ${shares.length} 个。`);
       }
 
-      const recoveredMnemonic = await this.recoverFromShareData(shareDataList.slice(0, threshold));
+      const recoveredMnemonic = await this.recoverFromShareData(goodShares.slice(0, threshold));
 
-      this.displayRecoverResult(recoveredMnemonic, shareDataList.length, threshold);
+      if (drillMode) {
+        // 演练模式：只比对指纹，任何情况下不渲染助记词明文
+        const actualFingerprint = computeMnemonicFingerprint(recoveredMnemonic);
+        const fingerprintChecked = Boolean(drillFingerprint);
+        const matched = !fingerprintChecked || actualFingerprint === drillFingerprint;
+        this.displayDrillRecoverResult({
+          matched,
+          fingerprintChecked,
+          expectedFingerprint: drillFingerprint,
+          actualFingerprint,
+          usedShares: threshold,
+          threshold,
+          skippedBadIndices,
+        });
+        return matched;
+      }
+
+      this.displayRecoverResult(recoveredMnemonic, shares.length, threshold, skippedBadIndices);
       return true;
     } catch (error) {
       this.displayRecoverError(error.message);
@@ -503,12 +596,22 @@ export class ShareManager {
   }
 
   /**
+   * 分片序号列表格式化为 "#3、#5"
+   * @param {number[]} indices - 分片序号数组
+   * @returns {string}
+   */
+  formatShareIndices(indices) {
+    return indices.map((i) => `#${i}`).join('、');
+  }
+
+  /**
    * 显示恢复结果（带复制 / 隐藏 / 擦除保护）
    * @param {string} mnemonic - 恢复的助记词
    * @param {number} usedShares - 使用的分片数
    * @param {number} threshold - 所需分片数
+   * @param {number[]} [skippedBadIndices] - 因校验码不符被跳过的分片序号
    */
-  displayRecoverResult(mnemonic, usedShares, threshold) {
+  displayRecoverResult(mnemonic, usedShares, threshold, skippedBadIndices = []) {
     const resultDiv = this.getActiveRecoverResultDiv();
 
     clearElement(resultDiv);
@@ -523,6 +626,14 @@ export class ShareManager {
 
     const meta = createElement('div', ['recover-card-meta']);
     meta.textContent = `使用 ${usedShares} 个分片（需要 ${threshold} 个） · ${formatDateTime()}`;
+
+    card.append(title, meta);
+
+    if (skippedBadIndices.length > 0) {
+      const skipWarn = createElement('div', ['recover-card-warning']);
+      skipWarn.textContent = `已跳过校验码不符的分片：${this.formatShareIndices(skippedBadIndices)}，请重新核对这些分片的抄录`;
+      card.append(skipWarn);
+    }
 
     const mnemonicDiv = createElement('div', ['recovered-mnemonic']);
     mnemonic
@@ -571,7 +682,87 @@ export class ShareManager {
     const hint = createElement('div', ['recover-card-hint']);
     hint.textContent = '请勿截屏或录屏；助记词已恢复，建议立即转存到安全位置并擦除本页内容。';
 
-    card.append(title, meta, mnemonicDiv, actions, hint);
+    card.append(mnemonicDiv, actions, hint);
+    resultDiv.appendChild(card);
+  }
+
+  /**
+   * 显示演练模式结果（只输出指纹比对结论，助记词明文不进入 DOM）
+   * @param {Object} outcome
+   * @param {boolean} outcome.matched - 是否通过（提供了指纹时指纹一致，未提供时校验和通过）
+   * @param {boolean} outcome.fingerprintChecked - 是否进行了指纹比对
+   * @param {string} outcome.expectedFingerprint - 预期指纹（8 位 hex，未比对时为 null）
+   * @param {string} outcome.actualFingerprint - 恢复结果的实际指纹
+   * @param {number} outcome.usedShares - 实际合并使用的分片数
+   * @param {number} outcome.threshold - 所需分片数
+   * @param {number[]} outcome.skippedBadIndices - 因校验码不符被跳过的分片序号
+   */
+  displayDrillRecoverResult({
+    matched,
+    fingerprintChecked,
+    expectedFingerprint,
+    actualFingerprint,
+    usedShares,
+    threshold,
+    skippedBadIndices,
+  }) {
+    const resultDiv = this.getActiveRecoverResultDiv();
+
+    clearElement(resultDiv);
+
+    const card = createElement('div', ['recover-card', matched ? null : 'is-error']);
+
+    const title = createElement('div', ['recover-card-title']);
+    title.innerHTML = `<svg class="icon" aria-hidden="true"><use href="#${matched ? 'i-check' : 'i-warning'}"/></svg>`;
+    title.appendChild(
+      document.createTextNode(matched ? (fingerprintChecked ? '演练通过 · 指纹一致' : '演练通过 · 未比对指纹') : '指纹不一致'),
+    );
+
+    const meta = createElement('div', ['recover-card-meta']);
+    meta.textContent = `使用 ${usedShares} 个分片（需要 ${threshold} 个） · ${formatDateTime()}`;
+
+    card.append(title, meta);
+
+    if (skippedBadIndices.length > 0) {
+      const skipWarn = createElement('div', ['recover-card-warning']);
+      skipWarn.textContent = `已跳过校验码不符的分片：${this.formatShareIndices(skippedBadIndices)}，请重新核对这些分片的抄录`;
+      card.append(skipWarn);
+    }
+
+    const fingerprintDiv = createElement('div', ['recover-card-fingerprint', 'mono']);
+    fingerprintDiv.textContent = !fingerprintChecked
+      ? `未提供预期指纹，仅验证分片可完整恢复（助记词未显示）。本次恢复结果的指纹：${this.formatFingerprint(actualFingerprint)}`
+      : matched
+        ? `✓ ${this.formatFingerprint(actualFingerprint)} 与预期指纹一致`
+        : `实际 ${this.formatFingerprint(actualFingerprint)} ≠ 预期 ${this.formatFingerprint(expectedFingerprint)}`;
+    card.append(fingerprintDiv);
+
+    const actions = createElement('div', ['recover-card-actions']);
+
+    const wipeBtn = createElement('button', ['btn', 'btn-danger-outline', 'btn-sm'], { type: 'button' });
+    wipeBtn.textContent = '擦除';
+    addEvent(wipeBtn, 'click', () => {
+      clearElement(resultDiv);
+      this.onWipeRecovery?.();
+      Toast.info('已擦除演练数据');
+    });
+
+    actions.appendChild(wipeBtn);
+    card.append(actions);
+
+    const hint = createElement('div', ['recover-card-hint']);
+    if (!fingerprintChecked) {
+      hint.textContent =
+        '备份可完整恢复、结果合法。若这份分片尚未建立指纹（旧版生成），请把上方指纹抄写到保管卡；下次演练输入它即可比对身份。';
+    } else if (matched) {
+      hint.textContent =
+        '恢复结果与创建时的助记词一致，备份有效。本次演练全程未显示助记词；如需查看明文，请关闭演练模式重新恢复。';
+    } else {
+      hint.textContent =
+        '请先核对保管卡上的指纹是否抄写有误；若指纹确认无误，说明这组分片对应的不是预期的助记词。本次未显示助记词明文。';
+    }
+    card.append(hint);
+
     resultDiv.appendChild(card);
   }
 
@@ -618,11 +809,13 @@ export class ShareManager {
   clearResults() {
     this.currentShares = [];
     this.currentThreshold = 0;
+    this.currentFingerprint = '';
     this.copiedShares.clear();
     this.downloadedShares.clear();
     this.clearEncryptionFields();
 
     toggleElement(getElement(SELECTORS.SHARES_RESULT), false);
     clearElement(getElement(SELECTORS.SHARES_LIST));
+    this.updateFingerprintRow();
   }
 }

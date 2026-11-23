@@ -7,9 +7,14 @@
 import { getElement, createElement, toggleElement, toggleClass, clearElement, addEvent } from '../utils/dom.js';
 import { debounce } from '../utils/helpers.js';
 import { parseShareData, validateShareCollection } from '../utils/validation.js';
+import { normalizeFingerprintInput } from '../utils/integrity.js';
 import { decryptWithPassword, PGP_ARMOR_HEADER } from '../utils/encryption.js';
 import { UI_CONFIG, SELECTORS, CSS_CLASSES } from '../constants/index.js';
 import { Toast } from './Toast.js';
+
+// 演练指纹输入为空时显示的默认说明
+const DRILL_FINGERPRINT_NOTE_DEFAULT =
+  '创建分片时页面显示的 8 位「助记词指纹」。留空则只验证可完整恢复，并显示恢复结果的指纹（旧版分片可借此建立指纹）。';
 
 export class RecoveryTabManager {
   constructor() {
@@ -29,6 +34,7 @@ export class RecoveryTabManager {
     this.setupFileUpload();
     this.setupEncryptionPassword();
     this.setupRecoverInputListener();
+    this.setupDrillMode();
   }
 
   /**
@@ -37,6 +43,86 @@ export class RecoveryTabManager {
   setupRecoverInputListener() {
     const input = getElement(SELECTORS.RECOVER_INPUT);
     addEvent(input, 'input', debounce(() => this.validateCurrentTab(), UI_CONFIG.DELAY.DEBOUNCE));
+  }
+
+  /**
+   * 恢复演练模式：勾选后恢复只输出指纹比对结论，不显示助记词明文。
+   * 演练模式是长期保存场景下定期校验的主通道——校验越频繁越好，暴露越少越好。
+   */
+  setupDrillMode() {
+    const toggle = getElement(SELECTORS.DRILL_MODE_TOGGLE);
+    const fields = getElement(SELECTORS.DRILL_FIELDS);
+    const fingerprintInput = getElement(SELECTORS.DRILL_FINGERPRINT_INPUT);
+
+    addEvent(toggle, 'change', () => {
+      toggleElement(fields, toggle.checked);
+
+      // 每次进入演练模式都从干净状态开始：清空上次演练残留的指纹输入与提示，
+      // 避免旧指纹污染本次比对造成误判
+      fingerprintInput.value = '';
+      const note = getElement(SELECTORS.DRILL_FINGERPRINT_NOTE);
+      note.textContent = DRILL_FINGERPRINT_NOTE_DEFAULT;
+      note.classList.remove('is-warning');
+
+      // 切换模式时清空两侧结果，避免残留的明文恢复结果与演练模式并存
+      clearElement(getElement(SELECTORS.PASTE_RECOVER_RESULT));
+      clearElement(getElement(SELECTORS.UPLOAD_RECOVER_RESULT));
+    });
+
+    // 指纹输入实时校验：只做格式提示，不阻断恢复（留空合法）
+    addEvent(fingerprintInput, 'input', () => {
+      const note = getElement(SELECTORS.DRILL_FINGERPRINT_NOTE);
+      const raw = fingerprintInput.value;
+
+      if (!raw.trim()) {
+        note.textContent = DRILL_FINGERPRINT_NOTE_DEFAULT;
+        note.classList.remove('is-warning');
+        return;
+      }
+
+      const normalized = normalizeFingerprintInput(raw);
+      if (normalized) {
+        note.textContent = `指纹格式正确：${normalized.slice(0, 4)} ${normalized.slice(4)}`;
+        note.classList.remove('is-warning');
+      } else {
+        note.textContent = '指纹格式无效：应为 8 位十六进制字符（0-9、A-F），如 F3A19C2B';
+        note.classList.add('is-warning');
+      }
+    });
+  }
+
+  /**
+   * 获取演练模式配置
+   * @returns {{active: boolean, fingerprint: string|null, hasInvalidInput: boolean}}
+   *   fingerprint: 归一化的预期指纹；留空时为 null（仍为演练模式，只不比对身份）
+   *   hasInvalidInput: 输入了内容但格式非法（调用方应拦截恢复）
+   */
+  getDrillConfig() {
+    const active = getElement(SELECTORS.DRILL_MODE_TOGGLE).checked;
+    if (!active) {
+      return { active: false, fingerprint: null, hasInvalidInput: false };
+    }
+
+    const raw = getElement(SELECTORS.DRILL_FINGERPRINT_INPUT).value;
+    const fingerprint = normalizeFingerprintInput(raw);
+    return {
+      active: true,
+      fingerprint,
+      hasInvalidInput: raw.trim() !== '' && fingerprint === null,
+    };
+  }
+
+  /**
+   * 重置演练模式输入（"擦除"动作使用）
+   */
+  resetDrillMode() {
+    getElement(SELECTORS.DRILL_MODE_TOGGLE).checked = false;
+    toggleElement(getElement(SELECTORS.DRILL_FIELDS), false);
+    getElement(SELECTORS.DRILL_FINGERPRINT_INPUT).value = '';
+
+    const note = getElement(SELECTORS.DRILL_FINGERPRINT_NOTE);
+    note.textContent = DRILL_FINGERPRINT_NOTE_DEFAULT;
+    note.classList.remove('is-warning');
   }
 
   /**
@@ -458,16 +544,29 @@ export class RecoveryTabManager {
    * @param {Element} recoverBtn - 恢复按钮
    */
   processValidationResult(validation, statusDiv, recoverBtn) {
+    let status;
+    let message;
+
     if (validation.validCount === 0) {
-      this.updateStatus('invalid', '无效的分片格式。请检查您的输入。', statusDiv);
+      status = 'invalid';
+      message = '无效的分片格式。请检查您的输入。';
     } else if (validation.hasDuplicates) {
-      this.updateStatus('invalid', '检测到重复的分片。每个分片应该是唯一的。', statusDiv);
+      status = 'invalid';
+      message = '检测到重复的分片。每个分片应该是唯一的。';
     } else if (!validation.isValid) {
-      this.updateStatus('insufficient', `分片数量不足。至少需要 ${validation.threshold} 个分片，但只提供了 ${validation.validCount} 个。`, statusDiv);
+      status = 'insufficient';
+      message = `分片数量不足。至少需要 ${validation.threshold} 个分片，但只提供了 ${validation.validCount} 个。`;
     } else {
-      this.updateStatus('valid', `检测到 ${validation.validCount} 个有效分片（需要 ${validation.threshold} 个），可以开始恢复`, statusDiv);
+      status = 'valid';
+      message = `检测到 ${validation.validCount} 个有效分片（需要 ${validation.threshold} 个），可以开始恢复`;
     }
 
+    // 分片级校验码提示：不阻断恢复（富余分片足够时仍可进行），但当场点名可疑分片
+    if (validation.checksumBad.length > 0) {
+      message += `；注意：分片 ${validation.checksumBad.map((i) => `#${i}`).join('、')} 校验码不匹配，可能抄录有误`;
+    }
+
+    this.updateStatus(status, message, statusDiv);
     recoverBtn.disabled = !validation.isValid;
   }
 
@@ -514,6 +613,7 @@ export class RecoveryTabManager {
 
     this.updateFilesList();
     this.togglePasswordSection(false);
+    this.resetDrillMode();
 
     this.updateStatus('waiting', '等待输入分片...', getElement(SELECTORS.INPUT_STATUS));
     this.updateStatus('waiting', '等待文件上传...', getElement(SELECTORS.UPLOAD_STATUS));
