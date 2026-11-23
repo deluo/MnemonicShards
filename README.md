@@ -13,7 +13,7 @@ open dist/mnemonic-shards-offline.html
 ```
 
 - 环境要求：Node.js **22.12+**（硬性下限 20.19，来自 Vite 7；Node 20 已 EOL，不建议）。仅开发与构建需要 Node——产物是纯静态单 HTML，直接使用无需任何运行时
-- 构建产物**已入库**（见[产物归档策略](#产物归档策略长期可用性保险)），clone 后可直接打开 `dist/mnemonic-shards-offline.html`，无需构建
+- 构建产物**已入库**，clone 后可直接打开 `dist/mnemonic-shards-offline.html`，无需构建
 - 本地开发：`npm run dev` → http://localhost:5173；`npm run preview` 预览构建产物
 - 首次使用请先阅读下方[「⚠️ 风险提示与注意事项」](#️-风险提示与注意事项)一节
 
@@ -189,21 +189,6 @@ src/
 ├── scripts/verify-bip39.mjs # 独立回归脚本（npm run verify）
 └── dist/mnemonic-shards-offline.html # 构建产物（入库归档）
 ```
-
-### 产物归档策略（长期可用性保险）
-
-- `dist/mnemonic-shards-offline.html` **直接纳入 git 仓库**：即使多年后依赖或构建环境失效，仓库中始终保留可直接双击使用的离线工具
-- 提交前强制保障：pre-commit 钩子（`.githooks/pre-commit`）每次提交前自动重新构建并校验产物与源码一致，防止过期产物入库；钩子经 `package.json` 的 `prepare` 脚本（`git config core.hooksPath .githooks`）随 `npm install` **自动生效**，换新机器 clone 后无需手动重建
-- 常规发布流程：`npm run release`（构建最新产物 + 暂存 dist/）后提交，并打上与[「风险提示」](#️-风险提示与注意事项)哈希表对应的版本 tag
-
-### CI 与依赖治理
-
-- GitHub Actions（`.github/workflows/ci.yml`）：push / PR 自动执行回归验证（`npm run verify`）、依赖漏洞审计（`npm audit`）、构建，并校验**入库产物与最新源码构建逐字节一致**
-- Dependabot（`.github/dependabot.yml`）：每周检查 npm 与 GitHub Actions 依赖更新；`shamir-secret-sharing` 已精确锁版（0.0.x 阶段 minor 即破坏性变更），升级需人工确认
-
-## 🌟 浏览器支持
-
-Chrome 88+ / Firefox 85+ / Safari 14+ / Edge 88+
 
 ## 📄 许可证
 
