@@ -1,14 +1,18 @@
 {
   "name": "mnemonic-shards",
-  "version": "1.0.0",
+  "version": "1.3.0",
   "description": "Professional mnemonic seed phrase splitting tool using Shamir Secret Sharing with file upload recovery, tab-based interface, and OpenPGP encryption support",
   "type": "module",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "verify": "node scripts/verify-bip39.mjs",
-    "release": "vite build && git add dist/"
+    "release": "vite build && git add dist/",
+    "prepare": "git config core.hooksPath .githooks"
   },
   "keywords": [
     "mnemonic",
@@ -33,8 +37,8 @@
     "@scure/base": "^2.4.0",
     "@scure/bip32": "^2.4.0",
     "openpgp": "^6.2.2",
-    "qrcode": "^1.5.4",
-    "shamir-secret-sharing": "^0.0.4"
+    "qrcode-generator": "^2.0.4",
+    "shamir-secret-sharing": "0.0.4"
   },
   "devDependencies": {
     "vite": "^7.1.7",

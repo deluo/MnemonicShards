@@ -86,6 +86,48 @@ export async function copyToClipboard(text) {
   }
 }
 
+// 敏感内容复制后自动清除剪贴板的延迟（毫秒）
+const SENSITIVE_CLIPBOARD_CLEAR_DELAY = 60000;
+
+/**
+ * 复制敏感文本（助记词、明文分片）到剪贴板，延迟后自动清除。
+ * 清除前先读回剪贴板确认内容仍是本次复制的文本：
+ * 用户已复制其他内容时不动剪贴板；浏览器拒绝在无手势环境读取
+ * （如 Firefox 的定时回调）时静默跳过，不做无条件覆盖
+ * @param {string} text - 要复制的敏感内容
+ * @returns {Promise<boolean>} 是否复制成功
+ */
+export async function copySensitiveToClipboard(text) {
+  const success = await copyToClipboard(text);
+  if (!success) return false;
+
+  setTimeout(async () => {
+    try {
+      const current = await navigator.clipboard.readText();
+      if (current === text) {
+        await navigator.clipboard.writeText('');
+      }
+    } catch (error) {
+      // 无法确认剪贴板当前内容，跳过以免误清用户后续复制的内容
+    }
+  }, SENSITIVE_CLIPBOARD_CLEAR_DELAY);
+
+  return true;
+}
+
+// 密码生成字符集：大小写字母、数字、符号，排除易混淆字符（0/O、1/l/I）
+const PASSWORD_CHARSET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%^&*-_=+';
+
+/**
+ * 用密码学安全随机数生成密码
+ * @param {number} length - 密码长度
+ * @returns {string} 生成的密码
+ */
+export function generateStrongPassword(length = 16) {
+  const values = crypto.getRandomValues(new Uint32Array(length));
+  return Array.from(values, (v) => PASSWORD_CHARSET[v % PASSWORD_CHARSET.length]).join('');
+}
+
 /**
  * 下载文件
  * @param {string} content - 文件内容

@@ -127,11 +127,11 @@ export function validatePasswordStrength(password) {
   if (hasNumbers) score += 1;
   if (hasSpecialChar) score += 1;
 
-  // 根据分数确定强度等级
+  // 根据分数确定强度等级（加密分片面临离线暴力破解，长度建议以 12 位为基准）
   if (score < 3) {
     return {
       strength: 'weak',
-      message: '密码强度弱：建议使用至少8位字符，包含大小写字母、数字和特殊字符',
+      message: '密码强度弱：建议使用至少12位字符，包含大小写字母、数字和特殊字符',
     };
   } else if (score < 5) {
     return {

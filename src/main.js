@@ -115,6 +115,14 @@ class MnemonicSplitApp {
       getElement(refs.btn).setAttribute('aria-pressed', String(isActive));
       toggleClass(getElement(refs.panel), CSS_CLASSES.ACTIVE, isActive);
     }
+
+    // 离开观察模式即清场：清掉内存中的助记词/passphrase 与观察侧输入框，
+    // 避免敏感输入在隐藏面板中跨模式滞留（已派生的地址/zpub 为公钥信息，保留展示）
+    if (mode !== 'observe') {
+      this.observeInput.clearAll();
+      this.addressWatcher.forgetMnemonic();
+      getElement(SELECTORS.OBS_PASSPHRASE).value = '';
+    }
   }
 
   /**

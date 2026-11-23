@@ -10,13 +10,46 @@
  * - 账户私钥在派生完成后立即抹除，内存中仅保留公钥链
  */
 
-import QRCode from 'qrcode';
+import qrcode from 'qrcode-generator';
 import { getElement, createElement, toggleElement, toggleClass, clearElement, addEvent, setText } from '../utils/dom.js';
 import { copyToClipboard, bindTwoStepConfirm } from '../utils/helpers.js';
 import { validateMnemonicChecksum } from '../utils/validation.js';
 import { mnemonicToSeed, deriveAccount, deriveAddress } from '../utils/derivation.js';
 import { DERIVATION_CONFIG, SELECTORS, CSS_CLASSES } from '../constants/index.js';
 import { Toast } from './Toast.js';
+
+/**
+ * 将二维码模块矩阵绘制到 canvas
+ * 每模块像素取整，避免亚像素插值导致的边缘模糊；画布尺寸为 cell*(模块数+2*margin)，
+ * 不超过目标尺寸（与旧 qrcode 库 280px 宽度、4 模块边距的视觉参数保持一致）
+ * @param {HTMLCanvasElement} canvas - 目标画布
+ * @param {Object} qr - qrcode-generator 生成的实例（已完成 make()）
+ * @param {Object} [opts]
+ * @param {number} [opts.size=280] - 目标画布边长（像素）
+ * @param {number} [opts.margin=4] - 四周静区（模块数）
+ * @param {string} [opts.dark='#1a1a1a'] - 前景色
+ * @param {string} [opts.light='#ffffff'] - 背景色
+ */
+function drawQrToCanvas(canvas, qr, { size = 280, margin = 4, dark = '#1a1a1a', light = '#ffffff' } = {}) {
+  const count = qr.getModuleCount();
+  const cell = Math.floor(size / (count + margin * 2));
+  const pixels = cell * (count + margin * 2);
+
+  canvas.width = pixels;
+  canvas.height = pixels;
+
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = light;
+  ctx.fillRect(0, 0, pixels, pixels);
+  ctx.fillStyle = dark;
+  for (let row = 0; row < count; row++) {
+    for (let col = 0; col < count; col++) {
+      if (qr.isDark(row, col)) {
+        ctx.fillRect((col + margin) * cell, (row + margin) * cell, cell, cell);
+      }
+    }
+  }
+}
 
 export class AddressWatcher {
   /**
@@ -35,6 +68,7 @@ export class AddressWatcher {
     this.shownCount = 0;
 
     this.remaskTimer = null; // zpub 显示态自动回遮蔽定时器
+    this.mnemonicClearTimer = null; // 助记词超时自动清除定时器
 
     // zpub 复制（两段式确认：隐私事件不响应误触）
     this.resetZpubCopyBtn = bindTwoStepConfirm(getElement(SELECTORS.ZPUB_COPY_BTN), {
@@ -158,6 +192,9 @@ export class AddressWatcher {
       this.accountKey = accountKey;
       this.xpub = xpub;
       this.shownCount = DERIVATION_CONFIG.ADDR_PAGE_SIZE;
+
+      // 助记词仅在切换路径预设时需要复用，超时即清，减少明文在内存的滞留时间
+      this.scheduleMnemonicClear();
 
       this.renderResult();
       if (!silent) {
@@ -316,16 +353,15 @@ export class AddressWatcher {
    * @param {string} title - 弹层标题
    * @param {string} value - 二维码内容
    */
-  async showQr(title, value) {
+  showQr(title, value) {
     setText(getElement(SELECTORS.QR_MODAL_TITLE), title);
 
     const canvas = getElement(SELECTORS.QR_CANVAS);
     try {
-      await QRCode.toCanvas(canvas, value, {
-        width: 280,
-        margin: 4,
-        color: { dark: '#1a1a1a', light: '#ffffff' },
-      });
+      const qr = qrcode(0, 'M'); // 版本自动选择，纠错级别 M
+      qr.addData(value);
+      qr.make();
+      drawQrToCanvas(canvas, qr);
     } catch (error) {
       Toast.error(`二维码生成失败：${error.message}`);
       return;
@@ -343,11 +379,39 @@ export class AddressWatcher {
   }
 
   /**
+   * 启动/重置助记词超时自动清除定时器（每次派生或预设重算后调用）
+   */
+  scheduleMnemonicClear() {
+    this.clearMnemonicTimer();
+    this.mnemonicClearTimer = setTimeout(() => {
+      this.forgetMnemonic();
+      Toast.info('已超时自动清除观察模式内存中的助记词；已派生的地址与 zpub 不受影响');
+    }, DERIVATION_CONFIG.MNEMONIC_AUTO_CLEAR_MS);
+  }
+
+  /**
+   * 清除助记词自动清除定时器
+   */
+  clearMnemonicTimer() {
+    clearTimeout(this.mnemonicClearTimer);
+    this.mnemonicClearTimer = null;
+  }
+
+  /**
+   * 清除内存中的助记词与 passphrase（离开观察模式 / 超时 / 全局擦除时调用）
+   * 已派生的地址与 zpub 仅含公钥信息，可继续展示
+   */
+  forgetMnemonic() {
+    this.clearMnemonicTimer();
+    this.words = null;
+    this.passphrase = '';
+  }
+
+  /**
    * 清空观察模式全部状态与结果（页脚"擦除所有数据"使用）
    */
   clearAll() {
-    this.words = null;
-    this.passphrase = '';
+    this.forgetMnemonic();
     this.accountKey = null;
     this.xpub = '';
     this.shownCount = 0;

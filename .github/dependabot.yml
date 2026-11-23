@@ -1,0 +1,18 @@
+# 依赖更新策略：本项目运行时零网络依赖、产物离线入库，
+# 依赖更新以安全修复为先；shamir-secret-sharing 已精确锁版（0.0.x 阶段
+# minor 即破坏性变更），升级需人工确认变更内容
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

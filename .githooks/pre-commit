@@ -1,0 +1,26 @@
+#!/bin/sh
+# 强制保障：提交前重新构建，确保入库的 dist 产物始终基于最新源码。
+# 两种拦截情况：
+#   1) 暂存的产物与最新构建不一致（源码改了忘重建/暂存了旧产物）
+#   2) 产物存在但完全未暂存（忘了 git add dist/）
+#
+# 本钩子通过 package.json 的 prepare 脚本（git config core.hooksPath .githooks）
+# 随 npm install 自动生效，clone 后无需手动重建钩子。
+npm run build --silent >/dev/null 2>&1 || {
+  echo "❌ 构建失败，提交中止——请先修复构建错误"
+  exit 1
+}
+
+if [ -n "$(git diff --name-only -- dist/)" ]; then
+  echo "⚠️  dist 产物已按最新源码重新构建，与暂存内容不一致（暂存的可能是旧产物）。"
+  echo "    请执行: npm run release && git commit ..."
+  exit 1
+fi
+
+if [ -n "$(git ls-files --others --exclude-standard dist/)" ]; then
+  echo "⚠️  检测到未暂存的 dist 产物文件。"
+  echo "    请执行: npm run release && git commit ..."
+  exit 1
+fi
+
+exit 0

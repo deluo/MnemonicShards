@@ -3,6 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      纵深防御：默认拒绝一切网络加载与外联。本工具为离线单文件产物，
+      全部脚本/样式均内联、图片仅 data: URI；任何意外引入的网络请求
+      （依赖误用、产物被篡改植入外链）都会被此策略拦截
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
     <title>MnemonicShards - 助记词分片工具</title>
     <link
       rel="icon"
@@ -140,7 +149,8 @@
               <div id="encryptionFields" class="encryption-fields" style="display: none">
                 <div class="control-group">
                   <label for="encryptionPassword">密码</label>
-                  <input type="password" id="encryptionPassword" class="password-input" placeholder="请输入加密密码" />
+                  <input type="password" id="encryptionPassword" class="password-input" placeholder="请输入加密密码（至少 12 位）" />
+                  <button type="button" class="text-btn" id="generatePasswordBtn">生成强密码</button>
                   <div class="password-strength" id="passwordStrength"></div>
                 </div>
 

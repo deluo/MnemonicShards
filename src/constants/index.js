@@ -4,7 +4,7 @@
 
 // 应用信息
 export const APP_CONFIG = {
-  VERSION: '1.2.0',
+  VERSION: '1.3.0',
 };
 
 // BTC 地址派生配置（观察模式）
@@ -41,11 +41,23 @@ export const DERIVATION_CONFIG = {
   ADDR_PAGE_SIZE: 10,
   // zpub 显示态自动回遮蔽延迟（毫秒）
   ZPUB_REMASK_DELAY: 60000,
+  // 派生完成后内存中助记词/passphrase 的自动清除延迟（毫秒）。
+  // 助记词仅在切换路径预设时需要复用，超时即清；已派生的地址与公钥不含私钥，可继续展示
+  MNEMONIC_AUTO_CLEAR_MS: 5 * 60 * 1000,
 };
 
 // 助记词配置
 export const MNEMONIC_CONFIG = {
   DEFAULT_WORD_COUNT: 12,
+};
+
+// 分片加密配置
+export const ENCRYPTION_CONFIG = {
+  // 密码长度硬下限：加密分片一旦泄露面临的是离线暴力破解，
+  // 常规"8 位"标准在此场景下不够，低于该长度直接拦截
+  MIN_PASSWORD_LENGTH: 12,
+  // 内置生成器的密码长度
+  GENERATED_PASSWORD_LENGTH: 16,
 };
 
 // UI配置
@@ -121,6 +133,7 @@ export const SELECTORS = {
   ENABLE_ENCRYPTION: '#enableEncryption',
   ENCRYPTION_FIELDS: '#encryptionFields',
   ENCRYPTION_PASSWORD: '#encryptionPassword',
+  GENERATE_PASSWORD_BTN: '#generatePasswordBtn',
   CONFIRM_PASSWORD: '#confirmPassword',
   PASSWORD_STRENGTH: '#passwordStrength',
   PASSWORD_MATCH: '#passwordMatch',

@@ -6,11 +6,18 @@
 
 import { split, combine } from 'shamir-secret-sharing';
 import { getElement, createElement, toggleElement, toggleClass, clearElement, addEvent } from '../utils/dom.js';
-import { copyToClipboard, downloadFile, formatDateTime, base64ToBytes } from '../utils/helpers.js';
+import {
+  copyToClipboard,
+  copySensitiveToClipboard,
+  generateStrongPassword,
+  downloadFile,
+  formatDateTime,
+  base64ToBytes,
+} from '../utils/helpers.js';
 import { validateMnemonicChecksum } from '../utils/validation.js';
 import { computeMnemonicFingerprint, computeShareChecksum } from '../utils/integrity.js';
 import { encryptWithPassword, decryptWithPassword, validatePasswordStrength, validatePasswordMatch } from '../utils/encryption.js';
-import { SELECTORS, CSS_CLASSES } from '../constants/index.js';
+import { SELECTORS, CSS_CLASSES, ENCRYPTION_CONFIG } from '../constants/index.js';
 import { Toast } from './Toast.js';
 import { ShardVisualizer } from './ShardVisualizer.js';
 
@@ -90,6 +97,16 @@ export class ShareManager {
     addEvent(confirmPassword, 'input', () => {
       this.checkPasswordMatch();
     });
+
+    // 生成强密码：密码学随机，同时填入密码与确认框并触发强度/匹配反馈
+    addEvent(getElement(SELECTORS.GENERATE_PASSWORD_BTN), 'click', () => {
+      const password = generateStrongPassword(ENCRYPTION_CONFIG.GENERATED_PASSWORD_LENGTH);
+      const passwordInput = getElement(SELECTORS.ENCRYPTION_PASSWORD);
+      passwordInput.value = password;
+      getElement(SELECTORS.CONFIRM_PASSWORD).value = password;
+      passwordInput.dispatchEvent(new Event('input'));
+      Toast.info(`已生成 ${ENCRYPTION_CONFIG.GENERATED_PASSWORD_LENGTH} 位强密码，请立即抄写到与分片分开保管的位置`);
+    });
   }
 
   /**
@@ -121,10 +138,18 @@ export class ShareManager {
     const password = getElement(SELECTORS.ENCRYPTION_PASSWORD).value;
     const confirm = getElement(SELECTORS.CONFIRM_PASSWORD).value;
 
+    // 长度硬下限：加密分片文件可被离线暴力破解，8 位常规标准在此场景不够
+    if (password.length < ENCRYPTION_CONFIG.MIN_PASSWORD_LENGTH) {
+      return {
+        isValid: false,
+        error: `加密密码至少需要 ${ENCRYPTION_CONFIG.MIN_PASSWORD_LENGTH} 位字符（分片文件泄露后将面临离线暴力破解，建议用「生成强密码」按钮）`,
+      };
+    }
+
     // 验证密码强度
     const strengthValidation = validatePasswordStrength(password);
     if (strengthValidation.strength === 'weak') {
-      return { isValid: false, error: '密码过于简单，请使用至少8个字符，包含字母、数字和符号的组合' };
+      return { isValid: false, error: '密码过于简单，请使用大小写字母、数字和符号的组合，或直接用「生成强密码」按钮' };
     }
 
     // 验证密码匹配
@@ -179,7 +204,9 @@ export class ShareManager {
       }
 
       // 生成分片（v1.2 格式：分片 JSON 内嵌可选校验码字段，兼容标准 GPG 工具与旧格式分片）
-      const mnemonic = words.join(' ');
+      // 先归一化（小写、单空格）再分片：与校验和/指纹的归一化基准一致，
+      // 保证同一助记词无论输入大小写如何，分片内容字节稳定可复现
+      const mnemonic = words.map((word) => word.trim().toLowerCase()).join(' ');
       const secretBytes = new TextEncoder().encode(mnemonic);
       const rawShares = await split(secretBytes, totalShares, threshold);
 
@@ -365,7 +392,8 @@ export class ShareManager {
    * @param {number} shareIndex - 分片索引
    */
   async copyShare(button, shareContent, shareIndex) {
-    const success = await copyToClipboard(shareContent);
+    // 明文分片是助记词的秘密共享分量，按敏感内容处理：复制后自动清除剪贴板
+    const success = await copySensitiveToClipboard(shareContent);
 
     if (success) {
       // 永久标记这个分片为已复制
@@ -374,6 +402,7 @@ export class ShareManager {
       button.textContent = '已复制';
       toggleClass(button, CSS_CLASSES.COPIED, true);
       this.updateSummary();
+      Toast.info('分片已复制，60 秒后自动清除剪贴板');
     } else {
       Toast.error('复制到剪贴板失败');
     }
@@ -654,9 +683,10 @@ export class ShareManager {
     const copyBtn = createElement('button', ['btn', 'btn-primary', 'btn-sm'], { type: 'button' });
     copyBtn.textContent = '复制助记词';
     addEvent(copyBtn, 'click', async () => {
-      const success = await copyToClipboard(mnemonic);
+      // 敏感内容复制：60 秒后自动清除剪贴板（期间复制过其他内容则不动）
+      const success = await copySensitiveToClipboard(mnemonic);
       if (success) {
-        Toast.success('助记词已复制到剪贴板');
+        Toast.success('助记词已复制，60 秒后自动清除剪贴板');
       } else {
         Toast.error('复制到剪贴板失败');
       }

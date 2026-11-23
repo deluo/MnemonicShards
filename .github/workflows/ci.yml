@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 安装依赖（锁定版本）
+        run: npm ci
+
+      - name: 回归验证（词表 / 校验和 / 分片往返 / 派生 / 指纹 / 校验码）
+        run: npm run verify
+
+      - name: 依赖漏洞审计
+        run: npm audit
+
+      - name: 构建单文件产物
+        run: npm run build
+
+      - name: 构建产物与入库产物一致性校验
+        run: |
+          if [ -n "$(git status --porcelain -- dist/)" ]; then
+            echo "❌ 最新构建与入库的 dist 产物不一致——源码改动后请执行 npm run release 再提交"
+            git --no-pager diff --stat -- dist/
+            exit 1
+          fi
+          echo "✅ 入库产物与最新源码构建一致"
